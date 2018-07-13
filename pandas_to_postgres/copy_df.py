@@ -20,7 +20,6 @@ class DataFrameCopy(BaseCopy):
 
         self.df = df
         self.levels = levels
-        self.columns = self.df.columns
         self.rows = self.df.shape[0]
 
     def copy(self, functions=[cast_pandas]):

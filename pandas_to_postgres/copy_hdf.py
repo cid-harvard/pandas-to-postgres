@@ -62,14 +62,10 @@ class HDFTableCopy(BaseCopy):
             self.rows += len(df)
 
             data_formatter_kwargs["hdf_table"] = hdf_table
-
             logger.info("Formatting data")
             df = self.data_formatting(
                 df, functions=data_formatters, **data_formatter_kwargs
             )
-
-            if self.columns is None:
-                self.columns = df.columns
 
             logger.info("Creating generator for chunking dataframe")
             for chunk in df_generator(df, self.csv_chunksize):
@@ -121,9 +117,6 @@ class SmallHDFTableCopy(HDFTableCopy):
             df = self.data_formatting(
                 df, functions=data_formatters, **data_formatter_kwargs
             )
-
-            if self.columns is None:
-                self.columns = df.columns
 
             logger.info("Creating CSV in memory")
             fo = create_file_object(df)
@@ -188,9 +181,6 @@ class BigHDFTableCopy(HDFTableCopy):
                 df = self.data_formatting(
                     df, functions=data_formatters, **data_formatter_kwargs
                 )
-
-                if self.columns is None:
-                    self.columns = df.columns
 
                 logger.info("Creating generator for chunking dataframe")
                 for chunk in df_generator(df, self.csv_chunksize):

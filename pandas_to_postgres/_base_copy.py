@@ -33,7 +33,6 @@ class BaseCopy(object):
         """
 
         self.rows = 0
-        self.columns = None
         self.csv_chunksize = csv_chunksize
 
         if not defer_sql_objs:
@@ -112,8 +111,9 @@ class BaseCopy(object):
         file_object: CSV formatted data to COPY from DataFrame to PostgreSQL
         """
         cur = self.conn.connection.cursor()
-        cols = ", ".join([f"{col}" for col in self.columns])
-        sql = f"COPY {self.sql_table} ({cols}) FROM STDIN WITH CSV HEADER FREEZE"
+        file_object.seek(0)
+        columns = file_object.readline()
+        sql = f"COPY {self.sql_table} ({columns}) FROM STDIN WITH CSV FREEZE"
         cur.copy_expert(sql=sql, file=file_object)
 
     def data_formatting(self, df: DataFrame, functions: List[Callable] = [], **kwargs):
