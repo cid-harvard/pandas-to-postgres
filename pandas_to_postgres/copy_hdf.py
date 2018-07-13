@@ -84,7 +84,7 @@ class HDFTableCopy(BaseCopy):
         logger.info(f"All chunks copied ({self.rows} rows)")
 
 
-class ClassificationHDFTableCopy(HDFTableCopy):
+class SmallHDFTableCopy(HDFTableCopy):
     def __init__(
         self,
         hdf_tables: List[str],

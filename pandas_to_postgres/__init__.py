@@ -1,5 +1,5 @@
 from .copy_df import DataFrameCopy
-from .copy_hdf import HDFTableCopy, ClassificationHDFTableCopy, BigHDFTableCopy
+from .copy_hdf import HDFTableCopy, SmallHDFTableCopy, BigHDFTableCopy
 from .utilities import (
     logger,
     HDFMetadata,
