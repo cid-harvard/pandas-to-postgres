@@ -101,13 +101,11 @@ def cast_pandas(df, sql_table):
     for col in sql_table.columns:
         if str(col.type) in ["INTEGER", "BIGINT"]:
             df[col.name] = df[col.name].apply(
-                # np.nan are not comparable, so use str value
-                lambda x: None if str(x) == "nan" else int(x),
-                convert_dtype=False,
+                lambda x: None if pd.isna(x) else int(x), convert_dtype=False
             )
         elif str(col.type) == "BOOLEAN":
             df[col.name] = df[col.name].apply(
-                lambda x: None if str(x) == "nan" else bool(x), convert_dtype=False
+                lambda x: None if pd.isna(x) else bool(x), convert_dtype=False
             )
 
     return df
