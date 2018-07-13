@@ -34,7 +34,8 @@ class HDFMetadata(object):
         ----------
         file_name: path to hdf file to copy from
         keys: list of hdf keys to copy data from
-        chunksize: maximum rows read from an hdf file into a pandas dataframe
+        chunksize: maximum rows read from an hdf file into a pandas dataframe when using
+            the BigTable protocol
         metadata_attr: location of relevant metadata in store.get_storer().attrs
         metadata_keys: list of keys to get from metadata store
         """
