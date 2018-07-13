@@ -14,6 +14,11 @@ from sqlalchemy.engine.base import Connection
 
 
 class HDFTableCopy(BaseCopy):
+    """
+    Class for handling a standard case of reading a table from an HDF file into a pandas
+    DataFrame, iterating over it in chunks, and COPYing to PostgreSQL via StringIO CSV
+    """
+
     def __init__(
         self,
         hdf_tables: List[str],
@@ -24,6 +29,19 @@ class HDFTableCopy(BaseCopy):
         sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
+        """
+        Parameters
+        ----------
+        hdf_tables: list of HDF keys with data corresponding to destination SQL table
+            (assumption being that HDF tables:SQL tables is many:one)
+        hdf_meta: HDFMetadata object with information from the store
+        defer_sql_objs: multiprocessing has issue with passing SQLALchemy objects, so if
+            True, defer attributing these to the object until after pickled by Pool
+        conn: SQLAlchemy connection managed outside of the object
+        table_obj: SQLAlchemy object for the destination SQL Table
+        sql_table: string of SQL table name
+        csv_chunksize: max rows to keep in memory when generating CSV for COPY
+        """
         super().__init__(defer_sql_objs, conn, table_obj, sql_table, csv_chunksize)
 
         self.hdf_tables = hdf_tables
@@ -34,6 +52,17 @@ class HDFTableCopy(BaseCopy):
         self.hdf_chunksize = hdf_meta.chunksize
 
     def copy(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
+        """
+        Go through sequence to COPY data to PostgreSQL table, including dropping Primary
+        and Foreign Keys to optimize speed, TRUNCATE table, COPY data, recreate keys,
+        and run ANALYZE.
+
+        Parameters
+        ----------
+        data_formatters: list of functions to apply to df during sequence. Note that
+            each of these functions should be able to handle kwargs for one another
+        data_formatter_kwargs: list of kwargs to pass to data_formatters functions
+        """
         self.drop_fks()
         self.drop_pk()
 
@@ -50,6 +79,15 @@ class HDFTableCopy(BaseCopy):
         self.analyze()
 
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
+        """
+        Copy each HDF table that relates to SQL table to database
+
+        Parameters
+        ----------
+        data_formatters: list of functions to apply to df during sequence. Note that
+            each of these functions should be able to handle kwargs for one another
+        data_formatter_kwargs: list of kwargs to pass to data_formatters functions
+        """
         if self.hdf_tables is None:
             logger.warn(f"No HDF table found for SQL table {self.sql_table}")
             return
@@ -81,6 +119,11 @@ class HDFTableCopy(BaseCopy):
 
 
 class SmallHDFTableCopy(HDFTableCopy):
+    """
+    Class for handling the case where the table is small enough to be stored completely
+    in-memory for both reading from the HDF as well as COPYing using StringIO.
+    """
+
     def __init__(
         self,
         hdf_tables: List[str],
@@ -91,6 +134,19 @@ class SmallHDFTableCopy(HDFTableCopy):
         sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
+        """
+        Parameters
+        ----------
+        hdf_tables: list of HDF keys with data corresponding to destination SQL table
+            (assumption being that HDF tables:SQL tables is many:one)
+        hdf_meta: HDFMetadata object with information from the store
+        defer_sql_objs: multiprocessing has issue with passing SQLALchemy objects, so if
+            True, defer attributing these to the object until after pickled by Pool
+        conn: SQLAlchemy connection managed outside of the object
+        table_obj: SQLAlchemy object for the destination SQL Table
+        sql_table: string of SQL table name
+        csv_chunksize: max rows to keep in memory when generating CSV for COPY
+        """
         super().__init__(
             hdf_tables,
             hdf_meta,
@@ -102,6 +158,15 @@ class SmallHDFTableCopy(HDFTableCopy):
         )
 
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
+        """
+        Copy each HDF table that relates to SQL table to database
+
+        Parameters
+        ----------
+        data_formatters: list of functions to apply to df during sequence. Note that
+            each of these functions should be able to handle kwargs for one another
+        data_formatter_kwargs: list of kwargs to pass to data_formatters functions
+        """
         if self.hdf_tables is None:
             logger.warn("No HDF table found for SQL table {self.sql_table}")
             return
@@ -129,6 +194,14 @@ class SmallHDFTableCopy(HDFTableCopy):
 
 
 class BigHDFTableCopy(HDFTableCopy):
+    """
+    Class for handling the special case of particularly large tables. For these, we
+    iterate over reading the table in the HDF as well as iterating again over each of
+    those chunks in order to keep the number of rows stored in-memory to a reasonable
+    size. Note that these are iterated using pd.read_hdf(..., start, stop) rather than
+    pd.read_hdf(..., iterator=True) because we found the performance was much better.
+    """
+
     def __init__(
         self,
         hdf_tables: List[str],
@@ -139,6 +212,19 @@ class BigHDFTableCopy(HDFTableCopy):
         sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
+        """
+        Parameters
+        ----------
+        hdf_tables: list of HDF keys with data corresponding to destination SQL table
+            (assumption being that HDF tables:SQL tables is many:one)
+        hdf_meta: HDFMetadata object with information from the store
+        defer_sql_objs: multiprocessing has issue with passing SQLALchemy objects, so if
+            True, defer attributing these to the object until after pickled by Pool
+        conn: SQLAlchemy connection managed outside of the object
+        table_obj: SQLAlchemy object for the destination SQL Table
+        sql_table: string of SQL table name
+        csv_chunksize: max rows to keep in memory when generating CSV for COPY
+        """
         super().__init__(
             hdf_tables,
             hdf_meta,
@@ -150,6 +236,15 @@ class BigHDFTableCopy(HDFTableCopy):
         )
 
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
+        """
+        Copy each HDF table that relates to SQL table to database
+
+        Parameters
+        ----------
+        data_formatters: list of functions to apply to df during sequence. Note that
+            each of these functions should be able to handle kwargs for one another
+        data_formatter_kwargs: list of kwargs to pass to data_formatters functions
+        """
         if self.hdf_tables is None:
             logger.warn(f"No HDF table found for SQL table {self.sql_table}")
             return
