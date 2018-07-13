@@ -117,6 +117,16 @@ class BaseCopy(object):
         cur.copy_expert(sql=sql, file=file_object)
 
     def data_formatting(self, df: DataFrame, functions: List[Callable] = [], **kwargs):
+        """
+        Call each function in the functions list arg on the DataFrame and return
+
+        Parameters
+        ----------
+        df: dataframe to format
+        functions: list of functions to apply to df. each gets passed df, self as
+            copy_obj, and all kwargs passed to data_formatting
+        **kwargs: kwargs to pass on to each function
+        """
         for f in functions:
             df = f(df, copy_obj=self, **kwargs)
         return df

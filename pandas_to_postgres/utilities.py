@@ -1,8 +1,6 @@
 import logging
 from typing import List
-import pandas as pd
-from sqlalchemy.sql.schema import Table
-
+from pandas import DataFrame, HDFStore, isna
 from collections import defaultdict
 from io import StringIO
 
@@ -28,7 +26,7 @@ class HDFMetadata(object):
         self.sql_to_hdf = defaultdict(set)
         self.levels = {}
 
-        with pd.HDFStore(self.file_name, mode="r") as store:
+        with HDFStore(self.file_name, mode="r") as store:
             self.keys = keys or store.keys()
 
             for key in self.keys:
@@ -48,7 +46,7 @@ class HDFMetadata(object):
                     logger.warn(f"No SQL table name found for {key}")
 
 
-def create_file_object(df: pd.DataFrame) -> StringIO:
+def create_file_object(df: DataFrame) -> StringIO:
     """
     Writes pandas dataframe to an in-memory StringIO file object. Adapted from
     https://gist.github.com/mangecoeur/1fbd63d4758c2ba0c470#gistcomment-2086007
@@ -59,7 +57,7 @@ def create_file_object(df: pd.DataFrame) -> StringIO:
     return file_object
 
 
-def df_generator(df: pd.DataFrame, chunksize: int):
+def df_generator(df: DataFrame, chunksize: int = 10 ** 6):
     """
     Create a generator to iterate over chunks of a dataframe
 
@@ -81,8 +79,8 @@ def df_generator(df: pd.DataFrame, chunksize: int):
 
 
 def cast_pandas(
-    df: pd.DataFrame, columns: list = None, copy_obj: object = None, **kwargs
-) -> pd.DataFrame:
+    df: DataFrame, columns: list = None, copy_obj: object = None, **kwargs
+) -> DataFrame:
     """
     Pandas does not handle null values in integer or boolean fields out of the
     box, so cast fields that should be these types in the database to object
@@ -111,11 +109,11 @@ def cast_pandas(
     for col in columns:
         if str(col.type) in ["INTEGER", "BIGINT"]:
             df[col.name] = df[col.name].apply(
-                lambda x: None if pd.isna(x) else int(x), convert_dtype=False
+                lambda x: None if isna(x) else int(x), convert_dtype=False
             )
         elif str(col.type) == "BOOLEAN":
             df[col.name] = df[col.name].apply(
-                lambda x: None if pd.isna(x) else bool(x), convert_dtype=False
+                lambda x: None if isna(x) else bool(x), convert_dtype=False
             )
 
     return df
