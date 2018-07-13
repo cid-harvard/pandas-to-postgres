@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+from sqlalchemy.sql.schema import Table
 
 from collections import defaultdict
 from io import StringIO
@@ -15,16 +16,14 @@ logger = logging.getLogger("pandas_to_postgres")
 
 
 class HDFMetadata(object):
-
-    sql_to_hdf = defaultdict(list)
-    levels = {}
-
     def __init__(self, file_name="./data.h5", keys=None, chunksize=10 ** 7):
         self.file_name = file_name
+        self.chunksize = chunksize
+        self.sql_to_hdf = defaultdict(set)
+        self.levels = {}
 
         with pd.HDFStore(self.file_name, mode="r") as store:
             self.keys = keys or store.keys()
-            self.chunksize = chunksize
 
             for key in self.keys:
                 try:
@@ -38,7 +37,7 @@ class HDFMetadata(object):
 
                 sql_table = metadata.get("sql_table_name")
                 if sql_table:
-                    self.sql_to_hdf[sql_table].append(key)
+                    self.sql_to_hdf[sql_table].add(key)
                 else:
                     logger.warn(f"No SQL table name found for {key}")
 
@@ -114,6 +113,29 @@ def cast_pandas(df, sql_table):
     return df
 
 
+def add_level_metadata(df, hdf_levels):
+    """
+    Updates dataframe fields for constant "_level" fields
+
+    Parameters
+    ----------
+    df: pandas DataFrame
+    hdf_levels: dict
+        dict of level:value fields that are constant for the entire dataframe
+
+    Returns
+    ------
+    df: pandas DataFrame
+    """
+
+    if hdf_levels:
+        logger.info("Adding level metadata values")
+        for entity, level_value in hdf_levels.items():
+            df[entity + "_level"] = level_value
+
+    return df
+
+
 def classification_to_pandas(
     df,
     optional_fields=[
@@ -145,77 +167,3 @@ def classification_to_pandas(
             new_df[field] = df[field]
 
     return new_df
-
-
-def hdf_metadata(file_name, keys):
-    """
-    Returns information on SQL-HDF table pairs (one-to-many) and classification
-    levels of each HDF table (many-to-one)
-
-    Parameters
-    ----------
-    file_name: str
-        path to HDF file
-    keys: iterable
-        set of keys in HDF to limit load to
-
-    Returns
-    -------
-    sql_to_hdf: dict
-        each sql table name key corresponds to a list of HDF keys that belong
-        in the table (such as different HDF tables for different product digit
-        levels)
-    levels: dict
-        for each key of an HDF table, provides data on the associated levels
-        for classification fields (such as 2digit, country)
-    """
-
-    store = pd.HDFStore(file_name, mode="r")
-    keys = keys or store.keys()
-
-    sql_to_hdf = defaultdict(list)
-    levels = {}
-
-    for key in keys:
-        try:
-            metadata = store.get_storer(key).attrs.atlas_metadata
-            logger.info("Metadata: %s", metadata)
-        except AttributeError:
-            logger.info("Attribute Error: Skipping %s", key)
-            continue
-
-        # Get levels for tables to use for later
-        levels[key] = metadata["levels"]
-
-        sql_name = metadata.get("sql_table_name")
-        if sql_name:
-            sql_to_hdf[sql_name].append(key)
-        else:
-            logger.warn("No SQL table name found for %s", key)
-
-    store.close()
-
-    return sql_to_hdf, levels
-
-
-def add_level_metadata(df, hdf_levels):
-    """
-    Updates dataframe fields for constant "_level" fields
-
-    Parameters
-    ----------
-    df: pandas DataFrame
-    hdf_levels: dict
-        dict of level:value fields that are constant for the entire dataframe
-
-    Returns
-    ------
-    df: pandas DataFrame
-    """
-
-    if hdf_levels:
-        logger.info("Adding level metadata values")
-        for entity, level_value in hdf_levels.items():
-            df[entity + "_level"] = level_value
-
-    return df

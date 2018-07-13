@@ -5,91 +5,49 @@ from .utilities import (
     classification_to_pandas,
     cast_pandas,
     add_level_metadata,
+    HDFMetadata,
 )
 
+from ._base_copy import BaseCopy
+
 import pandas as pd
-from sqlalchemy.schema import AddConstraint, DropConstraint
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.schema import Table
+from sqlalchemy.engine.base import Connection
 
 
-class HDFTableCopy(object):
+class HDFTableCopy(BaseCopy):
+    def __init__(
+        self,
+        hdf_tables: list,
+        hdf_meta: HDFMetadata,
+        defer_sql_objs: bool = False,
+        conn=None,
+        table_obj=None,
+        sql_table=None,
+        csv_chunksize: int = 10 ** 6,
+    ):
+        BaseCopy.__init__(
+            self, defer_sql_objs, conn, table_obj, sql_table, csv_chunksize
+        )
 
-    rows = 0
-    columns = None
-
-    def __init__(self, sql_table, hdf_tables, hdf_meta, csv_chunksize=10 ** 6):
-        self.sql_table = sql_table
         self.hdf_tables = hdf_tables
-        self.csv_chunksize = csv_chunksize
 
         # Info from the HDFMetadata object
         self.levels = hdf_meta.levels
         self.file_name = hdf_meta.file_name
         self.hdf_chunksize = hdf_meta.chunksize
 
-    def table_metadata(self):
-        self.table_obj = db.metadata.tables[self.sql_table]
-        self.primary_key = self.table_obj.primary_key
-        self.foreign_keys = self.table_obj.foreign_key_constraints
-
-    def set_conn(self, conn):
-        self.conn = conn
-
-    def delete_conn(self):
-        del self.conn
-
-    def drop_pk(self):
-        logger.info(f"Dropping {self.sql_table} primary key")
-        try:
-            with self.conn.begin_nested():
-                self.conn.execute(DropConstraint(self.primary_key, cascade=True))
-        except SQLAlchemyError:
-            logger.info(f"{self.sql_table} primary key not found. Skipping")
-
-    def create_pk(self):
-        logger.info(f"Creating {self.sql_table} primary key")
-        self.conn.execute(AddConstraint(self.primary_key))
-
-    def drop_fks(self):
-        for fk in self.foreign_keys:
-            logger.info(f"Dropping foreign key {fk.name}")
-            try:
-                with self.conn.begin_nested():
-                    self.conn.execute(DropConstraint(fk))
-            except SQLAlchemyError:
-                logger.warn(f"Foreign key {fk.name} not found")
-
-    def create_fks(self):
-        for fk in self.foreign_keys:
-            try:
-                logger.info(f"Creating foreign key {fk.name}")
-                self.conn.execute(AddConstraint(fk))
-            except SQLAlchemyError:
-                logger.warn(f"Error creating foreign key {fk.name}")
-
-    def truncate(self):
-        logger.info(f"Truncating {self.sql_table}")
-        self.conn.execute(f"TRUNCATE TABLE {self.sql_table};")
-
-    def analyze(self):
-        logger.info(f"Analyzing {self.sql_table}")
-        self.conn.execute(f"ANALYZE {self.sql_table};")
-
-    def copy_from_file(self, file_object):
-        cur = self.conn.connection.cursor()
-        cols = ", ".join([f"{col}" for col in self.columns])
-        sql = f"COPY {self.sql_table} ({cols}) FROM STDIN WITH CSV HEADER FREEZE"
-        cur.copy_expert(sql=sql, file=file_object)
-
     def copy_table(self):
-        self.table_metadata()
         self.drop_fks()
         self.drop_pk()
+
+        # These need to be one transaction to use COPY FREEZE
         with self.conn.begin():
             self.truncate()
             self.hdf_to_pg()
-            self.create_pk()
-            self.create_fks()
+
+        self.create_pk()
+        self.create_fks()
         self.analyze()
 
     def hdf_to_pg(self):
@@ -126,8 +84,26 @@ class HDFTableCopy(object):
 
 
 class ClassificationHDFTableCopy(HDFTableCopy):
-    def __init__(self, sql_table, hdf_tables, hdf_meta, csv_chunksize=10 ** 6):
-        HDFTableCopy.__init__(self, sql_table, hdf_tables, hdf_meta, csv_chunksize)
+    def __init__(
+        self,
+        hdf_tables: list,
+        hdf_meta: HDFMetadata,
+        defer_sql_objs: bool = False,
+        conn=None,
+        table_obj=None,
+        sql_table: str = None,
+        csv_chunksize: int = 10 ** 6,
+    ):
+        HDFTableCopy.__init__(
+            self,
+            hdf_tables,
+            hdf_meta,
+            defer_sql_objs,
+            conn,
+            table_obj,
+            sql_table,
+            csv_chunksize,
+        )
 
     def hdf_to_pg(self):
         if self.hdf_tables is None:
@@ -158,8 +134,26 @@ class ClassificationHDFTableCopy(HDFTableCopy):
 
 
 class BigHDFTableCopy(HDFTableCopy):
-    def __init__(self, sql_table, hdf_tables, hdf_meta, csv_chunksize=10 ** 6):
-        HDFTableCopy.__init__(self, sql_table, hdf_tables, hdf_meta, csv_chunksize)
+    def __init__(
+        self,
+        hdf_tables: list,
+        hdf_meta: HDFMetadata,
+        defer_sql_objs: bool = False,
+        conn=None,
+        table_obj=None,
+        sql_table=None,
+        csv_chunksize: int = 10 ** 6,
+    ):
+        HDFTableCopy.__init__(
+            self,
+            hdf_tables,
+            hdf_meta,
+            defer_sql_objs,
+            conn,
+            table_obj,
+            sql_table,
+            csv_chunksize,
+        )
 
     def hdf_to_pg(self):
         if self.hdf_tables is None:
