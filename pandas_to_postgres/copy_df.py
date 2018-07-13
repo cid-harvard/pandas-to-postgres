@@ -23,7 +23,7 @@ class DataFrameCopy(BaseCopy):
         csv_chunksize: int = 10 ** 6,
         levels: dict = None,
     ):
-        BaseCopy(defer_sql_objs, conn, table_obj, csv_chunksize)
+        super().__init__(defer_sql_objs, conn, table_obj, csv_chunksize)
 
         self.df = df
         self.levels = levels

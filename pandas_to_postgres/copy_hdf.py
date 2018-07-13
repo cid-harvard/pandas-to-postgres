@@ -9,7 +9,7 @@ from .utilities import (
 )
 
 from ._base_copy import BaseCopy
-
+from typing import List
 import pandas as pd
 from sqlalchemy.sql.schema import Table
 from sqlalchemy.engine.base import Connection
@@ -18,15 +18,15 @@ from sqlalchemy.engine.base import Connection
 class HDFTableCopy(BaseCopy):
     def __init__(
         self,
-        hdf_tables: list,
+        hdf_tables: List[str],
         hdf_meta: HDFMetadata,
         defer_sql_objs: bool = False,
-        conn=None,
-        table_obj=None,
-        sql_table=None,
+        conn: Connection = None,
+        table_obj: Table = None,
+        sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
-        BaseCopy.__init__(
+        super().__init__(
             self, defer_sql_objs, conn, table_obj, sql_table, csv_chunksize
         )
 
@@ -86,15 +86,15 @@ class HDFTableCopy(BaseCopy):
 class ClassificationHDFTableCopy(HDFTableCopy):
     def __init__(
         self,
-        hdf_tables: list,
+        hdf_tables: List[str],
         hdf_meta: HDFMetadata,
         defer_sql_objs: bool = False,
-        conn=None,
-        table_obj=None,
+        conn: Connection = None,
+        table_obj: Table = None,
         sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
-        HDFTableCopy.__init__(
+        super().__init__(
             self,
             hdf_tables,
             hdf_meta,
@@ -136,15 +136,15 @@ class ClassificationHDFTableCopy(HDFTableCopy):
 class BigHDFTableCopy(HDFTableCopy):
     def __init__(
         self,
-        hdf_tables: list,
+        hdf_tables: List[str],
         hdf_meta: HDFMetadata,
         defer_sql_objs: bool = False,
-        conn=None,
-        table_obj=None,
-        sql_table=None,
+        conn: Connection = None,
+        table_obj: Table = None,
+        sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
-        HDFTableCopy.__init__(
+        super().__init__(
             self,
             hdf_tables,
             hdf_meta,
