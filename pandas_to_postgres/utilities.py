@@ -15,35 +15,52 @@ logger = logging.getLogger("pandas_to_postgres")
 
 
 class HDFMetadata(object):
+    """Collect applicable metadata from HDFStore to use when running copy"""
+
     def __init__(
         self,
-        file_name: str = "./data.h5",
+        file_name: str,
         keys: List[str] = None,
         chunksize: int = 10 ** 7,
+        metadata_attr: str = None,
+        metadata_keys: List[str] = [],
     ):
         self.file_name = file_name
         self.chunksize = chunksize
         self.sql_to_hdf = defaultdict(set)
-        self.levels = {}
+        self.metadata_vars = defaultdict(dict)
+        """
+        Parameters
+        ----------
+        file_name: path to hdf file to copy from
+        keys: list of hdf keys to copy data from
+        chunksize: maximum rows read from an hdf file into a pandas dataframe
+        metadata_attr: location of relevant metadata in store.get_storer().attrs
+        metadata_keys: list of keys to get from metadata store
+        """
 
         with HDFStore(self.file_name, mode="r") as store:
             self.keys = keys or store.keys()
 
-            for key in self.keys:
-                try:
-                    metadata = store.get_storer(key).attrs.atlas_metadata
-                    logger.info(f"Metadata: {metadata}")
-                except AttributeError:
-                    logger.info(f"Attribute Error: Skipping {key}")
-                    continue
+            if metadata_attr:
+                for key in self.keys:
+                    try:
+                        metadata = store.get_storer(key).attrs[metadata_attr]
+                        logger.info(f"{key} metadata: {metadata}")
+                    except (AttributeError, KeyError):
+                        if "/meta" not in key:
+                            logger.info(f"No metadata found for key '{key}'. Skipping")
+                        continue
 
-                self.levels[key] = metadata["levels"]
+                    for mkey in metadata_keys:
+                        self.metadata_vars[mkey][key] = metadata.get(mkey)
 
-                sql_table = metadata.get("sql_table_name")
-                if sql_table:
-                    self.sql_to_hdf[sql_table].add(key)
-                else:
-                    logger.warn(f"No SQL table name found for {key}")
+                    sql_table = metadata.get("sql_table_name")
+
+                    if sql_table:
+                        self.sql_to_hdf[sql_table].add(key)
+                    else:
+                        logger.warn(f"No SQL table name found for {key}")
 
 
 def create_file_object(df: DataFrame) -> StringIO:

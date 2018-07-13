@@ -29,7 +29,7 @@ class HDFTableCopy(BaseCopy):
         self.hdf_tables = hdf_tables
 
         # Info from the HDFMetadata object
-        self.levels = hdf_meta.levels
+        self.hdf_metadata = hdf_meta.metadata_vars
         self.file_name = hdf_meta.file_name
         self.hdf_chunksize = hdf_meta.chunksize
 
