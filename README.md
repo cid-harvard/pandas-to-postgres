@@ -23,14 +23,23 @@ Anecdotally, we use this to load approximately 640 million rows of data from a 7
 
 ```python3
 
-from pandas_to_postgres import ...
+from pandas_to_postgres import (
+    DataFrameCopy,
+    hdf_to_postgres,
+    multiprocess_hdf_to_postgres,
+)
 
-# already loaded dataframe
-...
+table_model = db.metadata.tables['my_awesome_table']
+
+# already loaded DataFrame & SQLAlchemy Table model
+with db.engine.connect() as c:
+  DataFrameCopy(df, conn=c, table_obj=table_model).copy()
 
 # HDF from file
-...
+hdf_to_postgres('./data.h5', db)
 
+# Parallel HDF from file
+multiprocess_hdf_to_postgres('./data.h5', db, processes=4)
 ```
 
 # Other Comparisons
