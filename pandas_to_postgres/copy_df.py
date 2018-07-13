@@ -1,11 +1,4 @@
-from .utilities import (
-    create_file_object,
-    df_generator,
-    logger,
-    cast_pandas,
-    add_level_metadata,
-)
-
+from .utilities import create_file_object, df_generator, logger, cast_pandas
 from ._base_copy import BaseCopy
 
 import pandas as pd
@@ -30,18 +23,10 @@ class DataFrameCopy(BaseCopy):
         self.columns = self.df.columns
         self.rows = self.df.shape[0]
 
-    def format_df(self):
-        # Handle NaN --> None type casting
-        self.df = cast_pandas(self.df, self.table_obj)
-
-        # Add level (constant) data to frames from dict
-        if self.levels:
-            self.df = add_level_metadata(self.df, self.levels)
-
-    def copy(self):
+    def copy(self, functions=[cast_pandas]):
         self.drop_fks()
         self.drop_pk()
-        self.format_df()
+        self.df = self.data_formatting(self.df, functions=functions)
         with self.conn.begin():
             self.truncate()
 

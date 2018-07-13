@@ -2,9 +2,7 @@ from .utilities import (
     create_file_object,
     df_generator,
     logger,
-    classification_to_pandas,
     cast_pandas,
-    add_level_metadata,
     HDFMetadata,
 )
 
@@ -26,9 +24,7 @@ class HDFTableCopy(BaseCopy):
         sql_table: str = None,
         csv_chunksize: int = 10 ** 6,
     ):
-        super().__init__(
-            self, defer_sql_objs, conn, table_obj, sql_table, csv_chunksize
-        )
+        super().__init__(defer_sql_objs, conn, table_obj, sql_table, csv_chunksize)
 
         self.hdf_tables = hdf_tables
 
@@ -37,35 +33,40 @@ class HDFTableCopy(BaseCopy):
         self.file_name = hdf_meta.file_name
         self.hdf_chunksize = hdf_meta.chunksize
 
-    def copy_table(self):
+    def copy(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         self.drop_fks()
         self.drop_pk()
 
         # These need to be one transaction to use COPY FREEZE
         with self.conn.begin():
             self.truncate()
-            self.hdf_to_pg()
+            self.hdf_to_pg(
+                data_formatters=data_formatters,
+                data_formatter_kwargs=data_formatter_kwargs,
+            )
 
         self.create_pk()
         self.create_fks()
         self.analyze()
 
-    def hdf_to_pg(self):
+    def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         if self.hdf_tables is None:
             logger.warn(f"No HDF table found for SQL table {self.sql_table}")
             return
 
         for hdf_table in self.hdf_tables:
             logger.info(f"*** {hdf_table} ***")
-            hdf_levels = self.levels.get(hdf_table)
 
             logger.info("Reading HDF table")
             df = pd.read_hdf(self.file_name, key=hdf_table)
             self.rows += len(df)
 
-            # Handle NaN --> None type casting and adding const level data
-            df = cast_pandas(df, self.table_obj)
-            df = add_level_metadata(df, hdf_levels)
+            data_formatter_kwargs["hdf_table"] = hdf_table
+
+            logger.info("Formatting data")
+            df = self.data_formatting(
+                df, functions=data_formatters, **data_formatter_kwargs
+            )
 
             if self.columns is None:
                 self.columns = df.columns
@@ -95,7 +96,6 @@ class ClassificationHDFTableCopy(HDFTableCopy):
         csv_chunksize: int = 10 ** 6,
     ):
         super().__init__(
-            self,
             hdf_tables,
             hdf_meta,
             defer_sql_objs,
@@ -105,7 +105,7 @@ class ClassificationHDFTableCopy(HDFTableCopy):
             csv_chunksize,
         )
 
-    def hdf_to_pg(self):
+    def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         if self.hdf_tables is None:
             logger.warn("No HDF table found for SQL table {self.sql_table}")
             return
@@ -116,9 +116,11 @@ class ClassificationHDFTableCopy(HDFTableCopy):
             df = pd.read_hdf(self.file_name, key=hdf_table)
             self.rows += len(df)
 
-            logger.info("Formatting classification")
-            df = classification_to_pandas(df)
-            df = cast_pandas(df, self.table_obj)
+            data_formatter_kwargs["hdf_table"] = hdf_table
+            logger.info("Formatting data")
+            df = self.data_formatting(
+                df, functions=data_formatters, **data_formatter_kwargs
+            )
 
             if self.columns is None:
                 self.columns = df.columns
@@ -145,7 +147,6 @@ class BigHDFTableCopy(HDFTableCopy):
         csv_chunksize: int = 10 ** 6,
     ):
         super().__init__(
-            self,
             hdf_tables,
             hdf_meta,
             defer_sql_objs,
@@ -155,14 +156,13 @@ class BigHDFTableCopy(HDFTableCopy):
             csv_chunksize,
         )
 
-    def hdf_to_pg(self):
+    def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         if self.hdf_tables is None:
             logger.warn(f"No HDF table found for SQL table {self.sql_table}")
             return
 
         for hdf_table in self.hdf_tables:
             logger.info(f"*** {hdf_table} ***")
-            hdf_levels = self.levels.get(hdf_table)
 
             with pd.HDFStore(self.file_name) as store:
                 nrows = store.get_storer(hdf_table).nrows
@@ -183,9 +183,11 @@ class BigHDFTableCopy(HDFTableCopy):
 
                 start += self.hdf_chunksize
 
-                # Handle NaN --> None type casting and adding const level data
-                df = cast_pandas(df, self.table_obj)
-                df = add_level_metadata(df, hdf_levels)
+                data_formatter_kwargs["hdf_table"] = hdf_table
+                logger.info("Formatting data")
+                df = self.data_formatting(
+                    df, functions=data_formatters, **data_formatter_kwargs
+                )
 
                 if self.columns is None:
                     self.columns = df.columns

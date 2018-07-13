@@ -1,5 +1,7 @@
 from .utilities import logger
 from io import StringIO
+from pandas import DataFrame
+from typing import Callable, List
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.schema import Table
@@ -43,6 +45,11 @@ class BaseCopy(object):
         """
         When using multiprocessing, pickling of SQLAlchemy objects in __init__ causes
         issues, so allow for deferring until after the pickling to fetch SQLAlchemy objs
+
+        Parameters
+        ----------
+        conn: SQLAlchemy connection managed outside of the object
+        table_obj: SQLAlchemy object for the destination SQL Table
         """
         self.conn = conn
         self.table_obj = table_obj
@@ -97,8 +104,19 @@ class BaseCopy(object):
         self.conn.execute(f"ANALYZE {self.sql_table};")
 
     def copy_from_file(self, file_object: StringIO):
-        """COPY to PostgreSQL table using StringIO CSV object"""
+        """
+        COPY to PostgreSQL table using StringIO CSV object
+
+        Parameters
+        ----------
+        file_object: CSV formatted data to COPY from DataFrame to PostgreSQL
+        """
         cur = self.conn.connection.cursor()
         cols = ", ".join([f"{col}" for col in self.columns])
         sql = f"COPY {self.sql_table} ({cols}) FROM STDIN WITH CSV HEADER FREEZE"
         cur.copy_expert(sql=sql, file=file_object)
+
+    def data_formatting(self, df: DataFrame, functions: List[Callable] = [], **kwargs):
+        for f in functions:
+            df = f(df, copy_obj=self, **kwargs)
+        return df
