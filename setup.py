@@ -20,7 +20,7 @@ setup(
     ),
     url="http://github.com/cid-harvard/pandas-to-postgres",
     packages=find_packages(),
-    install_requires=["SQLAlchemy>=1.2.8,<2", "pandas==0.22.0", "psycopg2==2.7.5"],
+    install_requires=["SQLAlchemy", "pandas", "psycopg2"],
     long_description=read("README.md"),
     classifiers=[
         "Topic :: Database",
