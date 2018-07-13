@@ -14,12 +14,10 @@ class DataFrameCopy(BaseCopy):
         conn: Connection = None,
         table_obj: Table = None,
         csv_chunksize: int = 10 ** 6,
-        levels: dict = None,
     ):
         super().__init__(defer_sql_objs, conn, table_obj, csv_chunksize)
 
         self.df = df
-        self.levels = levels
         self.rows = self.df.shape[0]
 
     def copy(self, functions=[cast_pandas]):
