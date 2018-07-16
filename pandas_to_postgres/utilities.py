@@ -13,61 +13,54 @@ logging.basicConfig(
 logger = logging.getLogger("pandas_to_postgres")
 
 
-class HDFMetadata(object):
-    """Collect applicable metadata from HDFStore to use when running copy"""
+def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
+    """
+    Parameters
+    ----------
+    file_name: str
+        path to hdf file to copy from
+    keys: list of strings
+        HDF keys to copy data from
+    metadata_attr: str
+        Location of relevant metadata in store.get_storer().attrs
+    metadata_keys: list of strings
+        Keys to get from metadata store
 
-    def __init__(
-        self,
-        file_name,
-        keys=None,
-        chunksize=10 ** 7,
-        metadata_attr=None,
-        metadata_keys=[],
-    ):
-        self.file_name = file_name
-        self.chunksize = chunksize
-        self.sql_to_hdf = defaultdict(set)
-        self.metadata_vars = defaultdict(dict)
-        """
-        Parameters
-        ----------
-        file_name: str
-            path to hdf file to copy from
-        keys: list of strings
-            HDF keys to copy data from
-        chunksize: int
-            Maximum rows read from an hdf file into a pandas dataframe when using
-            the BigTable protocol
-        metadata_attr: str
-            :ocation of relevant metadata in store.get_storer().attrs
-        metadata_keys: list of strings
-            Keys to get from metadata store
-        """
+    Returns
+    -------
+    sql_to_hdf: dict of str:set
+    metadata_vars: dict of str:dict
+    """
 
-        with HDFStore(self.file_name, mode="r") as store:
-            self.keys = keys or store.keys()
+    sql_to_hdf = defaultdict(set)
+    metadata_vars = defaultdict(dict)
 
-            if metadata_attr:
-                for key in self.keys:
-                    try:
-                        metadata = store.get_storer(key).attrs[metadata_attr]
-                        logger.info("Metadata: {}".format(metadata))
-                    except (AttributeError, KeyError):
-                        if "/meta" not in key:
-                            logger.info(
-                                "No metadata found for key '{}'. Skipping".format(key)
-                            )
-                        continue
+    with HDFStore(file_name, mode="r") as store:
+        keys = keys or store.keys()
 
-                    for mkey in metadata_keys:
-                        self.metadata_vars[mkey][key] = metadata.get(mkey)
+        if metadata_attr:
+            for key in keys:
+                try:
+                    metadata = store.get_storer(key).attrs[metadata_attr]
+                    logger.info("Metadata: {}".format(metadata))
+                except (AttributeError, KeyError):
+                    if "/meta" not in key:
+                        logger.info(
+                            "No metadata found for key '{}'. Skipping".format(key)
+                        )
+                    continue
 
-                    sql_table = metadata.get("sql_table_name")
+                for mkey in metadata_keys:
+                    metadata_vars[mkey][key] = metadata.get(mkey)
 
-                    if sql_table:
-                        self.sql_to_hdf[sql_table].add(key)
-                    else:
-                        logger.warn("No SQL table name found for {}".format(key))
+                sql_table = metadata.get("sql_table_name")
+
+                if sql_table:
+                    sql_to_hdf[sql_table].add(key)
+                else:
+                    logger.warn("No SQL table name found for {}".format(key))
+
+    return sql_to_hdf, metadata_vars
 
 
 def create_file_object(df):

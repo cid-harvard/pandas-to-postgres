@@ -11,13 +11,15 @@ class HDFTableCopy(BaseCopy):
 
     def __init__(
         self,
+        file_name,
         hdf_tables,
-        hdf_meta,
         defer_sql_objs=False,
         conn=None,
         table_obj=None,
         sql_table=None,
         csv_chunksize=10 ** 6,
+        hdf_chunksize=10 ** 7,
+        hdf_metadata=None,
     ):
         """
         Parameters
@@ -42,11 +44,9 @@ class HDFTableCopy(BaseCopy):
         super().__init__(defer_sql_objs, conn, table_obj, sql_table, csv_chunksize)
 
         self.hdf_tables = hdf_tables
-
-        # Info from the HDFMetadata object
-        self.hdf_metadata = hdf_meta.metadata_vars
-        self.file_name = hdf_meta.file_name
-        self.hdf_chunksize = hdf_meta.chunksize
+        self.hdf_metadata = hdf_metadata
+        self.file_name = file_name
+        self.hdf_chunksize = hdf_chunksize
 
     def copy(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         """
@@ -121,46 +121,6 @@ class SmallHDFTableCopy(HDFTableCopy):
     in-memory for both reading from the HDF as well as COPYing using StringIO.
     """
 
-    def __init__(
-        self,
-        hdf_tables,
-        hdf_meta,
-        defer_sql_objs=False,
-        conn=None,
-        table_obj=None,
-        sql_table=None,
-        csv_chunksize=10 ** 6,
-    ):
-        """
-        Parameters
-        ----------
-        hdf_tables: list of strings
-            HDF keys with data corresponding to destination SQL table
-            (assumption being that HDF tables:SQL tables is many:one)
-        hdf_meta: HDFMetadata object
-            Information from the HDF file for use in building copy objects
-        defer_sql_objs: bool
-            multiprocessing has issue with passing SQLALchemy objects, so if
-            True, defer attributing these to the object until after pickled by Pool
-        conn: SQLAlchemy connection
-            Managed outside of the object
-        table_obj: SQLAlchemy model object
-            Destination SQL Table
-        sql_table: string
-            SQL table name
-        csv_chunksize: int
-            Max rows to keep in memory when generating CSV for COPY
-        """
-        super().__init__(
-            hdf_tables,
-            hdf_meta,
-            defer_sql_objs,
-            conn,
-            table_obj,
-            sql_table,
-            csv_chunksize,
-        )
-
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         """
         Copy each HDF table that relates to SQL table to database
@@ -205,46 +165,6 @@ class BigHDFTableCopy(HDFTableCopy):
     size. Note that these are iterated using pd.read_hdf(..., start, stop) rather than
     pd.read_hdf(..., iterator=True) because we found the performance was much better.
     """
-
-    def __init__(
-        self,
-        hdf_tables,
-        hdf_meta,
-        defer_sql_objs=False,
-        conn=None,
-        table_obj=None,
-        sql_table=None,
-        csv_chunksize=10 ** 6,
-    ):
-        """
-        Parameters
-        ----------
-        hdf_tables: list of strings
-            HDF keys with data corresponding to destination SQL table
-            (assumption being that HDF tables:SQL tables is many:one)
-        hdf_meta: HDFMetadata object
-            Information from the HDF file for use in building copy objects
-        defer_sql_objs: bool
-            multiprocessing has issue with passing SQLALchemy objects, so if
-            True, defer attributing these to the object until after pickled by Pool
-        conn: SQLAlchemy connection
-            Managed outside of the object
-        table_obj: SQLAlchemy model object
-            Destination SQL Table
-        sql_table: string
-            SQL table name
-        csv_chunksize: int
-            Max rows to keep in memory when generating CSV for COPY
-        """
-        super().__init__(
-            hdf_tables,
-            hdf_meta,
-            defer_sql_objs,
-            conn,
-            table_obj,
-            sql_table,
-            csv_chunksize,
-        )
 
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         """

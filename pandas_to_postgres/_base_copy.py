@@ -89,10 +89,10 @@ class BaseCopy(object):
         """Create foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             try:
-                logger.info("Creating foreign key {fk.name}".format(fk.name))
+                logger.info("Creating foreign key {}".format(fk.name))
                 self.conn.execute(AddConstraint(fk))
             except SQLAlchemyError:
-                logger.warn("Error creating foreign key {fk.name}".format(fk.name))
+                logger.warn("Error creating foreign key {}".format(fk.name))
 
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
