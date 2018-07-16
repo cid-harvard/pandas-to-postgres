@@ -1,5 +1,7 @@
 from multiprocessing import Pool
-from .copy_hdf import HDFTableCopy, HDFMetadata
+
+from .copy_hdf import HDFTableCopy
+from .utilities import HDFMetadata
 
 
 def create_hdf_table_objects(hdf_meta, csv_chunksize=10 ** 6):
