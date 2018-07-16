@@ -22,11 +22,9 @@ Anecdotally, we use this to load approximately 640 million rows of data from a 7
 # Usage Example
 
 ```python3
-
 from pandas_to_postgres import (
     DataFrameCopy,
     hdf_to_postgres,
-    multiprocess_hdf_to_postgres,
 )
 
 table_model = db.metadata.tables['my_awesome_table']
@@ -36,10 +34,10 @@ with db.engine.connect() as c:
   DataFrameCopy(df, conn=c, table_obj=table_model).copy()
 
 # HDF from file
-hdf_to_postgres('./data.h5', db)
+hdf_to_postgres('./data.h5', engine_args=["psycopg://..."])
 
 # Parallel HDF from file
-multiprocess_hdf_to_postgres('./data.h5', db, processes=4)
+hdf_to_postgres('./data.h5', engine_args=["psycopg://..."], processes=4)
 ```
 
 # Other Comparisons
