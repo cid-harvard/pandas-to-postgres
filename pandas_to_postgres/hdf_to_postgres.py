@@ -1,5 +1,7 @@
 from multiprocessing import Pool
 
+from sqlalchemy import MetaData, create_engine
+
 from .copy_hdf import HDFTableCopy
 from .utilities import HDFMetadata
 
@@ -36,29 +38,37 @@ def create_hdf_table_objects(hdf_meta, csv_chunksize=10 ** 6):
     return tables
 
 
-def _copy_worker(copy_obj, defer_sql_objs=True):
-    """
-    Handle a SQLAlchemy connection and copy using HDFTableCopy object
+def _copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem="1G"):
 
-    copy_obj: HDFTableCopy or subclass
-        Object to use to run the copy() method on
-    defer_sql_objs: bool
-        If True, SQL objects were not build upon instantiation of copy_obj and should
-        be built before copying data to db (needed for multiprocessing)
-    """
-    database.engine.dispose()
-    with database.engine.connect() as conn:
+    # Since we fork()ed into a new process, the engine contains process
+    # specific stuff that shouldn't be shared - this creates a fresh Engine
+    # with the same settings but without those.
+
+    engine = create_engine(*engine_args, **engine_kwargs)
+    metadata = MetaData(bind=engine)
+    metadata.reflect()
+
+    with engine.connect() as conn:
+
         conn.execution_options(autocommit=True)
-        conn.execute("SET maintenance_work_mem TO 1000000;")
 
-        if defer_sql_objs:
-            table_obj = database.metadata.tables[copy_obj.sql_table]
-            copy_obj.instantiate_sql_objs(conn, table_obj)
+        if maintenance_work_mem is not None:
+            conn.execute("SET maintenance_work_mem TO {};".format(maintenance_work_mem))
 
+        # Get SQLAlchemy Table object
+        table_obj = metadata.tables.get(copy_obj.sql_table, None)
+        if table_obj is None:
+            raise ValueError("Table {} does not exist.".format(copy_obj.sql_table))
+
+        copy_obj.instantiate_sql_objs(conn, table_obj)
+
+        # Run the task
         copy_obj.copy()
 
 
-def hdf_to_postgres(file_name, db, keys=[], csv_chunksize=10 ** 6):
+def hdf_to_postgres(file_name, engine_args, engine_kwargs={}, keys=[],
+                    csv_chunksize=10 ** 6, processes=None,
+                    maintenance_work_mem=None):
     """
     Copy tables in a HDF file to PostgreSQL database
 
@@ -66,16 +76,21 @@ def hdf_to_postgres(file_name, db, keys=[], csv_chunksize=10 ** 6):
     ----------
     file_name: str
         name of file or path to file of HDF to use to copy
-    db: SQLAlchemy database object
-        destination database
+    engine_args: list
+        arguments to pass into create_engine()
+    engine_kwargs: dict
+        keyword arguments to pass into create_engine()
     keys: list of strings
         HDF keys to copy
     csv_chunksize: int
         Maximum number of StringIO CSV rows to keep in memory at a time
+    processes: int or None
+        If None, run single threaded. If integer, number of processes in the
+        multiprocessing Pool
+    maintenance_work_mem: str or None
+        What to set postgresql's maintenance_work_mem option to: this helps
+        when rebuilding large indexes, etc.
     """
-
-    global database
-    database = db
 
     hdf = HDFMetadata(
         file_name, keys, metadata_attr="atlas_metadata", metadata_keys=["levels"]
@@ -83,44 +98,30 @@ def hdf_to_postgres(file_name, db, keys=[], csv_chunksize=10 ** 6):
 
     tables = create_hdf_table_objects(hdf, csv_chunksize=csv_chunksize)
 
-    for table in tables:
-        _copy_worker(table, defer_sql_objs=True)
+    if processes is None:
 
+        # Single-threaded run
+        for table in tables:
+            _copy_worker(table, engine_args, engine_kwargs, maintenance_work_mem)
 
-def multiprocess_hdf_to_postgres(
-    file_name, db, keys=[], processes=4, csv_chunksize=10 ** 6
-):
-    """
-    Copy tables in a HDF file to PostgreSQL database using a multiprocessing Pool
+    elif type(processes) is int:
 
-    Parameters
-    ----------
-    file_name: str
-        Name of file or path to file of HDF to use to copy
-    db: SQLAlchemy object
-        Destination database
-    keys: list of strings
-        HDF keys to copy
-    processes: int
-        Number of processes in the Pool
-    csv_chunksize: int
-        Maximum number of StringIO CSV rows to keep in memory at a time
-    """
+        args = zip(
+            tables,
+            [engine_args] * len(tables),
+            [engine_kwargs] * len(tables),
+            [maintenance_work_mem] * len(tables)
+        )
 
-    global database
-    database = db
+        try:
+            p = Pool(processes)
+            p.starmap(_copy_worker, args, chunksize=1)
 
-    hdf = HDFMetadata(
-        file_name, keys, metadata_attr="atlas_metadata", metadata_keys=["levels"]
-    )
+        finally:
+            del tables
+            del hdf
+            p.close()
+            p.join()
 
-    tables = create_hdf_table_objects(hdf, csv_chunksize=csv_chunksize)
-
-    try:
-        p = Pool(processes)
-        p.map(_copy_worker, tables, chunksize=1)
-    finally:
-        del tables
-        del hdf
-        p.close()
-        p.join()
+    else:
+        raise ValueError("processes should be int or None.")
