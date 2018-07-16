@@ -115,13 +115,18 @@ def hdf_to_postgres(file_name, engine_args, engine_kwargs={}, keys=[],
 
         try:
             p = Pool(processes)
-            p.starmap(_copy_worker, args, chunksize=1)
+            result = p.starmap_async(_copy_worker, args, chunksize=1)
 
         finally:
             del tables
             del hdf
             p.close()
             p.join()
+
+        if not result.successful():
+            # If there's an exception, throw it, but we don't care about the
+            # results
+            result.get()
 
     else:
         raise ValueError("processes should be int or None.")
