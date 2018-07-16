@@ -1,20 +1,31 @@
 from .utilities import create_file_object, df_generator, logger, cast_pandas
 from ._base_copy import BaseCopy
 
-import pandas as pd
-from sqlalchemy.sql.schema import Table
-from sqlalchemy.engine.base import Connection
-
 
 class DataFrameCopy(BaseCopy):
+    """
+    Class for handling a standard case of iterating over a pandas DataFrame in chunks
+    and COPYing to PostgreSQL via StringIO CSV
+    """
+
     def __init__(
-        self,
-        df: pd.DataFrame,
-        defer_sql_objs: bool = False,
-        conn: Connection = None,
-        table_obj: Table = None,
-        csv_chunksize: int = 10 ** 6,
+        self, df, defer_sql_objs=False, conn=None, table_obj=None, csv_chunksize=10 ** 6
     ):
+        """
+        Parameters
+        ----------
+        df: pandas DataFrame
+            Data to copy to database table
+        defer_sql_objs: bool
+            multiprocessing has issue with passing SQLALchemy objects, so if
+            True, defer attributing these to the object until after pickled by Pool
+        conn: SQlAlchemy Connection
+            Managed outside of the object
+        table_obj: SQLAlchemy model object
+            Destination SQL Table
+        csv_chunksize: int
+            Max rows to keep in memory when generating CSV for COPY
+        """
         super().__init__(defer_sql_objs, conn, table_obj, csv_chunksize)
 
         self.df = df
@@ -37,7 +48,7 @@ class DataFrameCopy(BaseCopy):
                 self.copy_from_file(fo)
                 del fo
 
-            logger.info(f"All chunks copied ({self.rows} rows)")
+            logger.info("All chunks copied ({} rows)".format(self.rows))
 
         self.create_pk()
         self.create_fks()
