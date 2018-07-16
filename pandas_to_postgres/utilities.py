@@ -1,73 +1,5 @@
-import logging
-from pandas import HDFStore, isna
-from collections import defaultdict
+from pandas import isna
 from io import StringIO
-
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(levelname)s %(asctime)s.%(msecs)03d %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-)
-
-logger = logging.getLogger("pandas_to_postgres")
-
-
-class HDFMetadata(object):
-    """Collect applicable metadata from HDFStore to use when running copy"""
-
-    def __init__(
-        self,
-        file_name,
-        keys=None,
-        chunksize=10 ** 7,
-        metadata_attr=None,
-        metadata_keys=[],
-    ):
-        self.file_name = file_name
-        self.chunksize = chunksize
-        self.sql_to_hdf = defaultdict(set)
-        self.metadata_vars = defaultdict(dict)
-        """
-        Parameters
-        ----------
-        file_name: str
-            path to hdf file to copy from
-        keys: list of strings
-            HDF keys to copy data from
-        chunksize: int
-            Maximum rows read from an hdf file into a pandas dataframe when using
-            the BigTable protocol
-        metadata_attr: str
-            :ocation of relevant metadata in store.get_storer().attrs
-        metadata_keys: list of strings
-            Keys to get from metadata store
-        """
-
-        with HDFStore(self.file_name, mode="r") as store:
-            self.keys = keys or store.keys()
-
-            if metadata_attr:
-                for key in self.keys:
-                    try:
-                        metadata = store.get_storer(key).attrs[metadata_attr]
-                        logger.info("Metadata: {}".format(metadata))
-                    except (AttributeError, KeyError):
-                        if "/meta" not in key:
-                            logger.info(
-                                "No metadata found for key '{}'. Skipping".format(key)
-                            )
-                        continue
-
-                    for mkey in metadata_keys:
-                        self.metadata_vars[mkey][key] = metadata.get(mkey)
-
-                    sql_table = metadata.get("sql_table_name")
-
-                    if sql_table:
-                        self.sql_to_hdf[sql_table].add(key)
-                    else:
-                        logger.warn("No SQL table name found for {}".format(key))
 
 
 def create_file_object(df):
@@ -89,7 +21,7 @@ def create_file_object(df):
     return file_object
 
 
-def df_generator(df, chunksize=10 ** 6):
+def df_generator(df, chunksize=10 ** 6, logger=None):
     """
     Create a generator to iterate over chunks of a dataframe
 
@@ -107,7 +39,8 @@ def df_generator(df, chunksize=10 ** 6):
         n_chunks = (df.shape[0] // chunksize) + 1
 
     for i in range(n_chunks):
-        logger.info("Chunk {i}/{n}".format(i=i + 1, n=n_chunks))
+        if logger:
+            logger.info("Chunk {i}/{n}".format(i=i + 1, n=n_chunks))
         yield df.iloc[rows : rows + chunksize]
         rows += chunksize
 

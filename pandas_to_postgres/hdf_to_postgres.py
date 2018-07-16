@@ -1,9 +1,19 @@
+import logging
 from multiprocessing import Pool
 
 from sqlalchemy import MetaData, create_engine
 
 from .copy_hdf import HDFTableCopy
 from .utilities import HDFMetadata
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d,%H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
 
 
 def create_hdf_table_objects(hdf_meta, csv_chunksize=10 ** 6):
