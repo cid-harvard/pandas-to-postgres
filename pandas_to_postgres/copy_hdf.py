@@ -1,8 +1,6 @@
-import logging
 import pandas as pd
 from .utilities import create_file_object, df_generator, cast_pandas
 from ._base_copy import BaseCopy
-from collections import defaultdict
 
 
 class HDFTableCopy(BaseCopy):
@@ -230,62 +228,3 @@ class BigHDFTableCopy(HDFTableCopy):
                     del fo
                 del df
         self.logger.info("All chunks copied ({} rows)".format(self.rows))
-
-
-class HDFMetadata(object):
-    """Collect applicable metadata from HDFStore to use when running copy"""
-
-    def __init__(
-        self,
-        file_name,
-        keys=None,
-        chunksize=10 ** 7,
-        metadata_attr=None,
-        metadata_keys=[],
-    ):
-        self.file_name = file_name
-        self.chunksize = chunksize
-        self.sql_to_hdf = defaultdict(set)
-        self.metadata_vars = defaultdict(dict)
-        self.logger = logging.getLogger("HDFMetadata")
-
-        """
-        Parameters
-        ----------
-        file_name: str
-            path to hdf file to copy from
-        keys: list of strings
-            HDF keys to copy data from
-        chunksize: int
-            Maximum rows read from an hdf file into a pandas dataframe when using
-            the BigTable protocol
-        metadata_attr: str
-            :ocation of relevant metadata in store.get_storer().attrs
-        metadata_keys: list of strings
-            Keys to get from metadata store
-        """
-
-        with pd.HDFStore(self.file_name, mode="r") as store:
-            self.keys = keys or store.keys()
-
-            if metadata_attr:
-                for key in self.keys:
-                    try:
-                        metadata = store.get_storer(key).attrs[metadata_attr]
-                        self.logger.info("Metadata: {}".format(metadata))
-                    except (AttributeError, KeyError):
-                        if "/meta" not in key:
-                            self.logger.info(
-                                "No metadata found for key '{}'. Skipping".format(key)
-                            )
-                        continue
-
-                    for mkey in metadata_keys:
-                        self.metadata_vars[mkey][key] = metadata.get(mkey)
-
-                    sql_table = metadata.get("sql_table_name")
-
-                    if sql_table:
-                        self.sql_to_hdf[sql_table].add(key)
-                    else:
-                        self.logger.warn("No SQL table name found for {}".format(key))

@@ -4,11 +4,14 @@ from pandas import isna, HDFStore
 from io import StringIO
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-)
+def get_logger(name):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d,%H:%M:%S",
+    )
+
+    return logging.getLogger(name)
 
 
 def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
@@ -40,7 +43,7 @@ def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
 
     sql_to_hdf = defaultdict(set)
     metadata_vars = defaultdict(dict)
-    logger = logging.getLogger("hdf_metadata")
+    logger = get_logger("hdf_metadata")
 
     with HDFStore(file_name, mode="r") as store:
         keys = keys or store.keys()

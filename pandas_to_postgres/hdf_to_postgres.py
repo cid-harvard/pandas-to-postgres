@@ -1,17 +1,10 @@
-import logging
 from multiprocessing import Pool
 from sqlalchemy import MetaData, create_engine
 from .copy_hdf import HDFTableCopy
-from .utilities import cast_pandas
+from .utilities import cast_pandas, get_logger
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-)
-
-logger = logging.getLogger("hdf_to_postgres")
+logger = get_logger("hdf_to_postgres")
 
 
 def create_hdf_table_objects(

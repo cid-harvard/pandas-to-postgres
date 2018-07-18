@@ -1,13 +1,6 @@
-import logging
+from .utilities import get_logger
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-)
 
 
 class BaseCopy(object):
@@ -47,7 +40,7 @@ class BaseCopy(object):
         else:
             self.sql_table = sql_table
 
-        self.logger = logging.getLogger(self.sql_table)
+        self.logger = get_logger(self.sql_table)
 
     def instantiate_sql_objs(self, conn, table_obj):
         """
@@ -100,10 +93,10 @@ class BaseCopy(object):
         """Create foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             try:
-                logger.info("Creating foreign key {}".format(fk.name))
+                self.logger.info("Creating foreign key {}".format(fk.name))
                 self.conn.execute(AddConstraint(fk))
             except SQLAlchemyError:
-                logger.warn("Error creating foreign key {}".format(fk.name))
+                self.logger.warn("Error creating foreign key {}".format(fk.name))
 
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
