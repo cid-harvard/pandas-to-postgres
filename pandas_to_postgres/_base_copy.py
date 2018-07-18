@@ -89,10 +89,10 @@ class BaseCopy(object):
         """Create foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             try:
-                logger.info("Creating foreign key {fk.name}".format(fk.name))
+                logger.info("Creating foreign key {}".format(fk.name))
                 self.conn.execute(AddConstraint(fk))
             except SQLAlchemyError:
-                logger.warn("Error creating foreign key {fk.name}".format(fk.name))
+                logger.warn("Error creating foreign key {}".format(fk.name))
 
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
@@ -128,12 +128,17 @@ class BaseCopy(object):
         Parameters
         ----------
         df: pandas DataFrame
-            dataframe to format
+            DataFrame to format
         functions: list of functions
             Functions to apply to df. each gets passed df, self as copy_obj, and all
             kwargs passed to data_formatting
         **kwargs
             kwargs to pass on to each function
+
+        Returns
+        -------
+        df: pandas DataFrame
+            formatted DataFrame
         """
         for f in functions:
             df = f(df, copy_obj=self, **kwargs)
