@@ -1,5 +1,73 @@
-from pandas import isna
+import logging
+from collections import defaultdict
+from pandas import isna, HDFStore
 from io import StringIO
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d,%H:%M:%S",
+)
+
+
+def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
+    """
+    Returns metadata stored in the HDF file including a mapping of SQL table names to
+    corresponding HDF tables (assuming one:many) as well as a dictionary of keys
+    corresponding to HDF tables with a dictionary of constants as values.
+
+    Parameters
+    ----------
+    file_name: str
+        path to hdf file to copy from
+    keys: list of strings
+        HDF keys to copy data from
+    metadata_attr: str
+        Location of relevant metadata in store.get_storer().attrs
+    metadata_keys: list of strings
+        Keys to get from metadata store
+
+    Returns
+    -------
+    sql_to_hdf: dict of str:set
+        Mapping of SQL tables :  set of HDF table keys
+        e.g., {"locations": {"countries", "states", "cities"}}
+    metadata_vars: dict of str:dict
+        Mapping of HDF table keys : dict of constants and values for each table
+        e.g., {"cities": {"level": "city"}}
+    """
+
+    sql_to_hdf = defaultdict(set)
+    metadata_vars = defaultdict(dict)
+    logger = logging.getLogger("hdf_metadata")
+
+    with HDFStore(file_name, mode="r") as store:
+        keys = keys or store.keys()
+
+        if metadata_attr:
+            for key in keys:
+                try:
+                    metadata = store.get_storer(key).attrs[metadata_attr]
+                    logger.info("Metadata: {}".format(metadata))
+                except (AttributeError, KeyError):
+                    if "/meta" not in key:
+                        logger.info(
+                            "No metadata found for key '{}'. Skipping".format(key)
+                        )
+                    continue
+
+                for mkey in metadata_keys:
+                    metadata_vars[mkey][key] = metadata.get(mkey)
+
+                sql_table = metadata.get("sql_table_name")
+
+                if sql_table:
+                    sql_to_hdf[sql_table].add(key)
+                else:
+                    logger.warn("No SQL table name found for {}".format(key))
+
+    return sql_to_hdf, metadata_vars
 
 
 def create_file_object(df):
