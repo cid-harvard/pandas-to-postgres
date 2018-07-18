@@ -199,7 +199,7 @@ class BigHDFTableCopy(HDFTableCopy):
             start = 0
 
             for i in range(n_chunks):
-                logger.info("*** HDF chunk {i + 1} of {} ***".format(n_chunks))
+                logger.info("*** HDF chunk {i} of {n} ***".format(i=i + 1, n=n_chunks))
                 logger.info("Reading HDF table")
                 stop = min(start + self.hdf_chunksize, nrows)
                 df = pd.read_hdf(self.file_name, key=hdf_table, start=start, stop=stop)
