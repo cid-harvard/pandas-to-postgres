@@ -1,6 +1,6 @@
-from .utilities import create_file_object, df_generator, logger, cast_pandas
-from ._base_copy import BaseCopy
 import pandas as pd
+from .utilities import create_file_object, df_generator, cast_pandas
+from ._base_copy import BaseCopy
 
 
 class HDFTableCopy(BaseCopy):
@@ -90,33 +90,35 @@ class HDFTableCopy(BaseCopy):
         data_formatter_kwargs: list of kwargs to pass to data_formatters functions
         """
         if self.hdf_tables is None:
-            logger.warn("No HDF table found for SQL table {}".format(self.sql_table))
+            self.logger.warn(
+                "No HDF table found for SQL table {}".format(self.sql_table)
+            )
             return
 
         for hdf_table in self.hdf_tables:
-            logger.info("*** {} ***".format(hdf_table))
+            self.logger.info("*** {} ***".format(hdf_table))
 
-            logger.info("Reading HDF table")
+            self.logger.info("Reading HDF table")
             df = pd.read_hdf(self.file_name, key=hdf_table)
             self.rows += len(df)
 
             data_formatter_kwargs["hdf_table"] = hdf_table
-            logger.info("Formatting data")
+            self.logger.info("Formatting data")
             df = self.data_formatting(
                 df, functions=data_formatters, **data_formatter_kwargs
             )
 
-            logger.info("Creating generator for chunking dataframe")
-            for chunk in df_generator(df, self.csv_chunksize):
+            self.logger.info("Creating generator for chunking dataframe")
+            for chunk in df_generator(df, self.csv_chunksize, logger=self.logger):
 
-                logger.info("Creating CSV in memory")
+                self.logger.info("Creating CSV in memory")
                 fo = create_file_object(chunk)
 
-                logger.info("Copying chunk to database")
+                self.logger.info("Copying chunk to database")
                 self.copy_from_file(fo)
                 del fo
             del df
-        logger.info("All chunks copied ({} rows)".format(self.rows))
+        self.logger.info("All chunks copied ({} rows)".format(self.rows))
 
 
 class SmallHDFTableCopy(HDFTableCopy):
@@ -136,29 +138,29 @@ class SmallHDFTableCopy(HDFTableCopy):
         data_formatter_kwargs: list of kwargs to pass to data_formatters functions
         """
         if self.hdf_tables is None:
-            logger.warn("No HDF table found for SQL table {self.sql_table}")
+            self.logger.warn("No HDF table found for SQL table {self.sql_table}")
             return
 
         for hdf_table in self.hdf_tables:
-            logger.info("*** {} ***".format(hdf_table))
-            logger.info("Reading HDF table")
+            self.logger.info("*** {} ***".format(hdf_table))
+            self.logger.info("Reading HDF table")
             df = pd.read_hdf(self.file_name, key=hdf_table)
             self.rows += len(df)
 
             data_formatter_kwargs["hdf_table"] = hdf_table
-            logger.info("Formatting data")
+            self.logger.info("Formatting data")
             df = self.data_formatting(
                 df, functions=data_formatters, **data_formatter_kwargs
             )
 
-            logger.info("Creating CSV in memory")
+            self.logger.info("Creating CSV in memory")
             fo = create_file_object(df)
 
-            logger.info("Copying table to database")
+            self.logger.info("Copying table to database")
             self.copy_from_file(fo)
             del df
             del fo
-        logger.info("All chunks copied ({} rows)".format(self.rows))
+        self.logger.info("All chunks copied ({} rows)".format(self.rows))
 
 
 class BigHDFTableCopy(HDFTableCopy):
@@ -181,11 +183,13 @@ class BigHDFTableCopy(HDFTableCopy):
         data_formatter_kwargs: list of kwargs to pass to data_formatters functions
         """
         if self.hdf_tables is None:
-            logger.warn("No HDF table found for SQL table {}".format(self.sql_table))
+            self.logger.warn(
+                "No HDF table found for SQL table {}".format(self.sql_table)
+            )
             return
 
         for hdf_table in self.hdf_tables:
-            logger.info("*** {} ***".format(hdf_table))
+            self.logger.info("*** {} ***".format(hdf_table))
 
             with pd.HDFStore(self.file_name) as store:
                 nrows = store.get_storer(hdf_table).nrows
@@ -199,26 +203,28 @@ class BigHDFTableCopy(HDFTableCopy):
             start = 0
 
             for i in range(n_chunks):
-                logger.info("*** HDF chunk {i} of {n} ***".format(i=i + 1, n=n_chunks))
-                logger.info("Reading HDF table")
+                self.logger.info(
+                    "*** HDF chunk {i} of {n} ***".format(i=i + 1, n=n_chunks)
+                )
+                self.logger.info("Reading HDF table")
                 stop = min(start + self.hdf_chunksize, nrows)
                 df = pd.read_hdf(self.file_name, key=hdf_table, start=start, stop=stop)
 
                 start += self.hdf_chunksize
 
                 data_formatter_kwargs["hdf_table"] = hdf_table
-                logger.info("Formatting data")
+                self.logger.info("Formatting data")
                 df = self.data_formatting(
                     df, functions=data_formatters, **data_formatter_kwargs
                 )
 
-                logger.info("Creating generator for chunking dataframe")
-                for chunk in df_generator(df, self.csv_chunksize):
-                    logger.info("Creating CSV in memory")
+                self.logger.info("Creating generator for chunking dataframe")
+                for chunk in df_generator(df, self.csv_chunksize, logger=self.logger):
+                    self.logger.info("Creating CSV in memory")
                     fo = create_file_object(chunk)
 
-                    logger.info("Copying chunk to database")
+                    self.logger.info("Copying chunk to database")
                     self.copy_from_file(fo)
                     del fo
                 del df
-        logger.info("All chunks copied ({} rows)".format(self.rows))
+        self.logger.info("All chunks copied ({} rows)".format(self.rows))

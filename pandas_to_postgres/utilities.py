@@ -1,16 +1,17 @@
 import logging
-from pandas import HDFStore, isna
 from collections import defaultdict
+from pandas import isna, HDFStore
 from io import StringIO
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(levelname)s %(asctime)s.%(msecs)03d %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-)
+def get_logger(name):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d,%H:%M:%S",
+    )
 
-logger = logging.getLogger("pandas_to_postgres")
+    return logging.getLogger(name)
 
 
 def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
@@ -42,6 +43,7 @@ def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
 
     sql_to_hdf = defaultdict(set)
     metadata_vars = defaultdict(dict)
+    logger = get_logger("hdf_metadata")
 
     with HDFStore(file_name, mode="r") as store:
         keys = keys or store.keys()
@@ -90,7 +92,7 @@ def create_file_object(df):
     return file_object
 
 
-def df_generator(df, chunksize=10 ** 6):
+def df_generator(df, chunksize=10 ** 6, logger=None):
     """
     Create a generator to iterate over chunks of a dataframe
 
@@ -108,7 +110,8 @@ def df_generator(df, chunksize=10 ** 6):
         n_chunks = (df.shape[0] // chunksize) + 1
 
     for i in range(n_chunks):
-        logger.info("Chunk {i}/{n}".format(i=i + 1, n=n_chunks))
+        if logger:
+            logger.info("Chunk {i}/{n}".format(i=i + 1, n=n_chunks))
         yield df.iloc[rows : rows + chunksize]
         rows += chunksize
 

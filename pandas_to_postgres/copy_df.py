@@ -1,4 +1,4 @@
-from .utilities import create_file_object, df_generator, logger, cast_pandas
+from .utilities import create_file_object, df_generator, cast_pandas
 from ._base_copy import BaseCopy
 
 
@@ -38,17 +38,17 @@ class DataFrameCopy(BaseCopy):
         with self.conn.begin():
             self.truncate()
 
-            logger.info("Creating generator for chunking dataframe")
+            self.logger.info("Creating generator for chunking dataframe")
             for chunk in df_generator(self.df, self.csv_chunksize):
 
-                logger.info("Creating CSV in memory")
+                self.logger.info("Creating CSV in memory")
                 fo = create_file_object(chunk)
 
-                logger.info("Copying chunk to database")
+                self.logger.info("Copying chunk to database")
                 self.copy_from_file(fo)
                 del fo
 
-            logger.info("All chunks copied ({} rows)".format(self.rows))
+            self.logger.info("All chunks copied ({} rows)".format(self.rows))
 
         self.create_pk()
         self.create_fks()

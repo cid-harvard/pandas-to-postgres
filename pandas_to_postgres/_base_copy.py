@@ -1,4 +1,4 @@
-from .utilities import logger
+from .utilities import get_logger
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -36,14 +36,15 @@ class BaseCopy(object):
         self.csv_chunksize = csv_chunksize
 
         if not defer_sql_objs:
-            self.instantiate_sql_objs(conn, table_obj)
+            self.instantiate_attrs(conn, table_obj)
         else:
             self.sql_table = sql_table
 
-    def instantiate_sql_objs(self, conn, table_obj):
+    def instantiate_attrs(self, conn, table_obj):
         """
-        When using multiprocessing, pickling of SQLAlchemy objects in __init__ causes
-        issues, so allow for deferring until after the pickling to fetch SQLAlchemy objs
+        When using multiprocessing, pickling of logger and SQLAlchemy objects in
+        __init__ causes issues, so allow for deferring until after the pickling to fetch
+        SQLAlchemy objs
 
         Parameters
         ----------
@@ -55,6 +56,7 @@ class BaseCopy(object):
         self.conn = conn
         self.table_obj = table_obj
         self.sql_table = table_obj.name
+        self.logger = get_logger(self.sql_table)
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
 
@@ -63,45 +65,47 @@ class BaseCopy(object):
         Drop primary key constraints on PostgreSQL table as well as CASCADE any other
         constraints that may rely on the PK
         """
-        logger.info("Dropping {} primary key".format(self.sql_table))
+        self.logger.info("Dropping {} primary key".format(self.sql_table))
         try:
             with self.conn.begin_nested():
                 self.conn.execute(DropConstraint(self.primary_key, cascade=True))
         except SQLAlchemyError:
-            logger.info("{} primary key not found. Skipping".format(self.sql_table))
+            self.logger.info(
+                "{} primary key not found. Skipping".format(self.sql_table)
+            )
 
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
-        logger.info("Creating {} primary key".format(self.sql_table))
+        self.logger.info("Creating {} primary key".format(self.sql_table))
         self.conn.execute(AddConstraint(self.primary_key))
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
-            logger.info("Dropping foreign key {}".format(fk.name))
+            self.logger.info("Dropping foreign key {}".format(fk.name))
             try:
                 with self.conn.begin_nested():
                     self.conn.execute(DropConstraint(fk))
             except SQLAlchemyError:
-                logger.warn("Foreign key {} not found".format(fk.name))
+                self.logger.warn("Foreign key {} not found".format(fk.name))
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             try:
-                logger.info("Creating foreign key {}".format(fk.name))
+                self.logger.info("Creating foreign key {}".format(fk.name))
                 self.conn.execute(AddConstraint(fk))
             except SQLAlchemyError:
-                logger.warn("Error creating foreign key {}".format(fk.name))
+                self.logger.warn("Error creating foreign key {}".format(fk.name))
 
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
-        logger.info("Truncating {}".format(self.sql_table))
+        self.logger.info("Truncating {}".format(self.sql_table))
         self.conn.execute("TRUNCATE TABLE {};".format(self.sql_table))
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
-        logger.info("Analyzing {}".format(self.sql_table))
+        self.logger.info("Analyzing {}".format(self.sql_table))
         self.conn.execute("ANALYZE {};".format(self.sql_table))
 
     def copy_from_file(self, file_object):
