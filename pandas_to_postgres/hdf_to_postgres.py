@@ -42,7 +42,7 @@ def create_hdf_table_objects(
     return tables
 
 
-def _copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None):
+def copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None):
     """
     Callable function used in hdf_to_postgres function to execute copy process. Since
     we fork()ed into a new process, the engine contains process specific stuff that
@@ -156,7 +156,7 @@ def hdf_to_postgres(
     if processes is None:
         # Single-threaded run
         for table in tables:
-            _copy_worker(table, engine_args, engine_kwargs, maintenance_work_mem)
+            copy_worker(table, engine_args, engine_kwargs, maintenance_work_mem)
 
     elif type(processes) is int:
         args = zip(
@@ -168,7 +168,7 @@ def hdf_to_postgres(
 
         try:
             p = Pool(processes)
-            result = p.starmap_async(_copy_worker, args, chunksize=1)
+            result = p.starmap_async(copy_worker, args, chunksize=1)
 
         finally:
             del tables
