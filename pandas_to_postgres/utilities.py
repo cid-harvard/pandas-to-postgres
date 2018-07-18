@@ -15,6 +15,10 @@ logger = logging.getLogger("pandas_to_postgres")
 
 def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
     """
+    Returns metadata stored in the HDF file including a mapping of SQL table names to
+    corresponding HDF tables (assuming one:many) as well as a dictionary of keys
+    corresponding to HDF tables with a dictionary of constants as values.
+
     Parameters
     ----------
     file_name: str
@@ -29,7 +33,11 @@ def hdf_metadata(file_name, keys=None, metadata_attr=None, metadata_keys=[]):
     Returns
     -------
     sql_to_hdf: dict of str:set
+        Mapping of SQL tables :  set of HDF table keys
+        e.g., {"locations": {"countries", "states", "cities"}}
     metadata_vars: dict of str:dict
+        Mapping of HDF table keys : dict of constants and values for each table
+        e.g., {"cities": {"level": "city"}}
     """
 
     sql_to_hdf = defaultdict(set)

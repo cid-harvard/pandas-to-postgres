@@ -128,12 +128,17 @@ class BaseCopy(object):
         Parameters
         ----------
         df: pandas DataFrame
-            dataframe to format
+            DataFrame to format
         functions: list of functions
             Functions to apply to df. each gets passed df, self as copy_obj, and all
             kwargs passed to data_formatting
         **kwargs
             kwargs to pass on to each function
+
+        Returns
+        -------
+        df: pandas DataFrame
+            formatted DataFrame
         """
         for f in functions:
             df = f(df, copy_obj=self, **kwargs)

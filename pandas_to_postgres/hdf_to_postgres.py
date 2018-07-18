@@ -43,10 +43,24 @@ def create_hdf_table_objects(
 
 
 def _copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None):
+    """
+    Callable function used in hdf_to_postgres function to execute copy process. Since
+    we fork()ed into a new process, the engine contains process specific stuff that
+    shouldn't be shared - this creates a fresh Engine with the same settings but without
+    those.
 
-    # Since we fork()ed into a new process, the engine contains process
-    # specific stuff that shouldn't be shared - this creates a fresh Engine
-    # with the same settings but without those.
+    Parameters
+    ----------
+    copy_obj: HDFTableCopy or subclass
+        Object used to execute the copy process
+    engine_args: list
+        arguments to pass into create_engine()
+    engine_kwargs: dict
+        keyword arguments to pass into create_engine()
+    maintenance_work_mem: str or None
+        What to set postgresql's maintenance_work_mem option to: this helps
+        when rebuilding large indexes, etc.
+    """
 
     engine = create_engine(*engine_args, **engine_kwargs)
     metadata = MetaData(bind=engine)
@@ -96,9 +110,13 @@ def hdf_to_postgres(
     engine_kwargs: dict
         keyword arguments to pass into create_engine()
     keys: list of strings
-        HDF keys to copy
+        HDF keys to limit copy to. If falsey, does not restrict.
+    sql_to_hdf: dict or None
+        Mapping of SQL table names to iterable of corresponding HDF keys
     csv_chunksize: int
         Maximum number of StringIO CSV rows to keep in memory at a time
+    hdf_chunksize: int
+            Max rows to keep in memory when reading HDF file
     processes: int or None
         If None, run single threaded. If integer, number of processes in the
         multiprocessing Pool
@@ -106,6 +124,8 @@ def hdf_to_postgres(
         What to set postgresql's maintenance_work_mem option to: this helps
         when rebuilding large indexes, etc.
     hdf_metadata: dict or None
+        Mapping of HDF table keys : dict of constants and values for each table
+        e.g., {"cities": {"level": "city"}}
     """
     if keys and sql_to_hdf:
         # Filter HDF tables as union of keys and sql_to_hdf.values()
@@ -134,13 +154,11 @@ def hdf_to_postgres(
     )
 
     if processes is None:
-
         # Single-threaded run
         for table in tables:
             _copy_worker(table, engine_args, engine_kwargs, maintenance_work_mem)
 
     elif type(processes) is int:
-
         args = zip(
             tables,
             [engine_args] * len(tables),

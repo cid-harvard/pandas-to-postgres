@@ -24,22 +24,26 @@ class HDFTableCopy(BaseCopy):
         """
         Parameters
         ----------
+        file_name
         hdf_tables: list of strings
             HDF keys with data corresponding to destination SQL table
             (assumption being that HDF tables:SQL tables is many:one)
-        hdf_meta: HDFMetadata object
-            Information from the HDF file for use in building copy objects
         defer_sql_objs: bool
             multiprocessing has issue with passing SQLALchemy objects, so if
             True, defer attributing these to the object until after pickled by Pool
-        conn: SQLAlchemy connection
+        conn: SQLAlchemy connection or None
             Managed outside of the object
-        table_obj: SQLAlchemy model object
+        table_obj: SQLAlchemy model object or None
             Destination SQL Table
-        sql_table: string
+        sql_table: string or None
             SQL table name
         csv_chunksize: int
             Max rows to keep in memory when generating CSV for COPY
+        hdf_chunksize: int
+            Max rows to keep in memory when reading HDF file
+        hdf_metadata: dict or None
+            Dict of HDF table keys to dict of constant:value pairs. Not actively used by
+            any pre-defined function, but available to data_formatting method
         """
         super().__init__(defer_sql_objs, conn, table_obj, sql_table, csv_chunksize)
 
