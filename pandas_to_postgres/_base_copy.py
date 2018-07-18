@@ -36,16 +36,15 @@ class BaseCopy(object):
         self.csv_chunksize = csv_chunksize
 
         if not defer_sql_objs:
-            self.instantiate_sql_objs(conn, table_obj)
+            self.instantiate_attrs(conn, table_obj)
         else:
             self.sql_table = sql_table
 
-        self.logger = get_logger(self.sql_table)
-
-    def instantiate_sql_objs(self, conn, table_obj):
+    def instantiate_attrs(self, conn, table_obj):
         """
-        When using multiprocessing, pickling of SQLAlchemy objects in __init__ causes
-        issues, so allow for deferring until after the pickling to fetch SQLAlchemy objs
+        When using multiprocessing, pickling of logger and SQLAlchemy objects in
+        __init__ causes issues, so allow for deferring until after the pickling to fetch
+        SQLAlchemy objs
 
         Parameters
         ----------
@@ -57,6 +56,7 @@ class BaseCopy(object):
         self.conn = conn
         self.table_obj = table_obj
         self.sql_table = table_obj.name
+        self.logger = get_logger(self.sql_table)
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
 

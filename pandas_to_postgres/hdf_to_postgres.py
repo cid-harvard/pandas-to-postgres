@@ -95,7 +95,7 @@ def copy_worker(
         if table_obj is None:
             raise ValueError("Table {} does not exist.".format(copy_obj.sql_table))
 
-        copy_obj.instantiate_sql_objs(conn, table_obj)
+        copy_obj.instantiate_attrs(conn, table_obj)
 
         # Run the task
         copy_obj.copy(
