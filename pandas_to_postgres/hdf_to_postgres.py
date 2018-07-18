@@ -1,6 +1,7 @@
 from multiprocessing import Pool
 from sqlalchemy import MetaData, create_engine
 from .copy_hdf import HDFTableCopy
+from .utilities import cast_pandas
 
 
 def create_hdf_table_objects(
@@ -42,7 +43,14 @@ def create_hdf_table_objects(
     return tables
 
 
-def copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None):
+def copy_worker(
+    copy_obj,
+    engine_args,
+    engine_kwargs,
+    maintenance_work_mem=None,
+    data_formatters=[cast_pandas],
+    data_formatter_kwargs={},
+):
     """
     Callable function used in hdf_to_postgres function to execute copy process. Since
     we fork()ed into a new process, the engine contains process specific stuff that
@@ -60,6 +68,10 @@ def copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None)
     maintenance_work_mem: str or None
         What to set postgresql's maintenance_work_mem option to: this helps
         when rebuilding large indexes, etc.
+    data_formatters: list of func
+        Functions to pass to the copy_obj.data_formatting method during copy
+    data_formatter_kwargs:
+        Kwargs to pass to functions in data_formatters
     """
 
     engine = create_engine(*engine_args, **engine_kwargs)
@@ -83,7 +95,9 @@ def copy_worker(copy_obj, engine_args, engine_kwargs, maintenance_work_mem=None)
         copy_obj.instantiate_sql_objs(conn, table_obj)
 
         # Run the task
-        copy_obj.copy()
+        copy_obj.copy(
+            data_formatters=data_formatters, data_formatter_kwargs=data_formatter_kwargs
+        )
 
 
 def hdf_to_postgres(
