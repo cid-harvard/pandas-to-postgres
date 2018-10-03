@@ -64,19 +64,19 @@ class HDFTableCopy(BaseCopy):
             each of these functions should be able to handle kwargs for one another
         data_formatter_kwargs: list of kwargs to pass to data_formatters functions
         """
-        self.drop_fks()
-        self.drop_pk()
 
         # These need to be one transaction to use COPY FREEZE
         with self.conn.begin():
+            self.drop_fks()
+            self.drop_pk()
             self.truncate()
             self.hdf_to_pg(
                 data_formatters=data_formatters,
                 data_formatter_kwargs=data_formatter_kwargs,
             )
+            self.create_pk()
+            self.create_fks()
 
-        self.create_pk()
-        self.create_fks()
         self.analyze()
 
     def hdf_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
