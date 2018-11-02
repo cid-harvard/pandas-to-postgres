@@ -116,7 +116,7 @@ def df_generator(df, chunksize=10 ** 6, logger=None):
         rows += chunksize
 
 
-def cast_pandas(df, columns=None, copy_obj=None, **kwargs):
+def cast_pandas(df, columns=None, copy_obj=None, logger=None, **kwargs):
     """
     Pandas does not handle null values in integer or boolean fields out of the
     box, so cast fields that should be these types in the database to object
@@ -140,18 +140,27 @@ def cast_pandas(df, columns=None, copy_obj=None, **kwargs):
         fields changed to objects with None values for null
     """
 
+    logger = get_logger("cast_pandas")
+
     if columns is None and copy_obj is None:
         raise ValueError("One of columns or copy_obj must be supplied")
 
     columns = columns or copy_obj.table_obj.columns
     for col in columns:
-        if str(col.type) in ["INTEGER", "BIGINT"]:
-            df[col.name] = df[col.name].apply(
-                lambda x: None if isna(x) else int(x), convert_dtype=False
-            )
-        elif str(col.type) == "BOOLEAN":
-            df[col.name] = df[col.name].apply(
-                lambda x: None if isna(x) else bool(x), convert_dtype=False
+        try:
+            if str(col.type) in ["INTEGER", "BIGINT"]:
+                df[col.name] = df[col.name].apply(
+                    lambda x: None if isna(x) else int(x), convert_dtype=False
+                )
+            elif str(col.type) == "BOOLEAN":
+                df[col.name] = df[col.name].apply(
+                    lambda x: None if isna(x) else bool(x), convert_dtype=False
+                )
+        except KeyError:
+            logger.warn(
+                "Column {} not in DataFrame. Cannot coerce object type.".format(
+                    col.name
+                )
             )
 
     return df
