@@ -4,9 +4,6 @@ from ._base_copy import BaseCopy
 
 class DataFrameCopyAppend(BaseCopy):
     """
-    Class for handling a standard case of iterating over a pandas DataFrame in chunks
-    and COPYing to PostgreSQL via StringIO CSV.
-
     Differs from main DataFrameCopy class with that it doesn't drop fks, pks and indexes, and appends df
     to existing data in table. This will cause it to lose a lot of performance.
     """
