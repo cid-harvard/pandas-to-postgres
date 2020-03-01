@@ -12,7 +12,7 @@ class DataFrameCopyAppend(BaseCopy):
     """
 
     def __init__(
-        self, df, defer_sql_objs=False, conn=None, table_obj=None, csv_chunksize=10 ** 6
+            self, df, defer_sql_objs=False, conn=None, table_obj=None, csv_chunksize=10 ** 6
     ):
         """
         Parameters
@@ -49,6 +49,22 @@ class DataFrameCopyAppend(BaseCopy):
     def drop_pk(self):
         pass
 
+    def copy_from_file(self, file_object):
+        """
+        COPY to PostgreSQL table using StringIO CSV object
+        Parameters
+        ----------
+        file_object: StringIO
+            CSV formatted data to COPY from DataFrame to PostgreSQL
+        """
+        cur = self.conn.connection.cursor()
+        file_object.seek(0)
+        columns = file_object.readline()
+        sql = "COPY {table} ({columns}) FROM STDIN WITH  CSV".format(
+            table=self.sql_table, columns=columns
+        )
+        cur.copy_expert(sql=sql, file=file_object)
+
     def copy(self, functions=[cast_pandas]):
         self.drop_fks()
         self.drop_pk()
@@ -58,7 +74,6 @@ class DataFrameCopyAppend(BaseCopy):
 
             self.logger.info("Creating generator for chunking dataframe")
             for chunk in df_generator(self.df, self.csv_chunksize):
-
                 self.logger.info("Creating CSV in memory")
                 fo = create_file_object(chunk)
 
