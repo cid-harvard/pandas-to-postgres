@@ -55,7 +55,10 @@ class BaseCopy(object):
         """
         self.conn = conn
         self.table_obj = table_obj
-        self.sql_table = table_obj.name
+        if table_obj.schema:
+            self.sql_table = f"{table_obj.schema}.{table_obj.name}"
+        else:
+            self.sql_table = table_obj.name
         self.logger = get_logger(self.sql_table)
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
