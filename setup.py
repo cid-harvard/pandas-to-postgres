@@ -12,7 +12,7 @@ def read(fname, lines=False):
 
 setup(
     name="pandas_to_postgres",
-    version="v0.0.3",
+    version="v0.0.4",
     author="Brendan Leonard <Harvard CID>",
     description=(
         "Utility to copy Pandas DataFrames and DataFrames stored in HDF5 files "
