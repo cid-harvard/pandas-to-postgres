@@ -1,5 +1,8 @@
 # Pandas-to-postgres
+## by the Growth Lab at Harvard's Center for International Development
+This package is part of Harvard Growth Lab’s portfolio of software packages, digital products and interactive data visualizations. To browse our entire portfolio, please visit growthlab.app. To learn more about our research, please visit [Harvard Growth Lab’s home page](https://growthlab.cid.harvard.edu/).
 
+# About
 Pandas-to-postgres allows you to bulk load the contents of large dataframes into postgres as quickly as possible. The main differences from pandas' `to_sql` function are:
 
 - Uses `COPY` combined with `to_csv` instead of `execute / executemany`, which runs much faster for large volumes of data
