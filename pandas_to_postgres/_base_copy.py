@@ -1,4 +1,5 @@
 from .utilities import get_logger
+from .utilities import get_debugger
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -14,7 +15,7 @@ class BaseCopy(object):
         conn=None,
         table_obj=None,
         sql_table=None,
-        csv_chunksize=10 ** 6,
+        csv_chunksize=10**6,
     ):
         """
         Parameters
@@ -57,6 +58,7 @@ class BaseCopy(object):
         self.table_obj = table_obj
         self.sql_table = table_obj.name
         self.logger = get_logger(self.sql_table)
+        self.debugger = get_debugger(self.sql_table)
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
 
@@ -66,6 +68,7 @@ class BaseCopy(object):
         constraints that may rely on the PK
         """
         self.logger.info("Dropping {} primary key".format(self.sql_table))
+        self.debugger.debug("TESTING DEBUGGER {}".format(self.sql_table))
         try:
             with self.conn.begin_nested():
                 self.conn.execute(DropConstraint(self.primary_key, cascade=True))
