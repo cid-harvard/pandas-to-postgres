@@ -5,6 +5,7 @@ from io import StringIO
 
 
 def get_logger(name):
+    print("TESTING!!!!")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",
@@ -92,7 +93,7 @@ def create_file_object(df):
     return file_object
 
 
-def df_generator(df, chunksize=10 ** 6, logger=None):
+def df_generator(df, chunksize=10**6, logger=None):
     """
     Create a generator to iterate over chunks of a dataframe
 
