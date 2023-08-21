@@ -29,11 +29,6 @@ class DataFrameCopy(BaseCopy):
         super().__init__(defer_sql_objs, conn, table_obj, csv_chunksize)
 
         self.df = df
-        print(
-            "dataframe",
-            self.df.columns,
-            self.df.head,
-        )
         self.rows = self.df.shape[0]
 
     def copy(self, functions=[cast_pandas]):
