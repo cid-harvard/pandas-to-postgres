@@ -5,7 +5,6 @@ from io import StringIO
 
 
 def get_logger(name):
-    print("TESTING!!!!")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s %(message)s",

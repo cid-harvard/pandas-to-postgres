@@ -1,5 +1,11 @@
 from .utilities import get_logger
-from sqlalchemy.schema import AddConstraint, DropConstraint
+from sqlalchemy.schema import AddConstraint, DropConstraint, PrimaryKeyConstraint
+from sqlalchemy import MetaData
+from sqlalchemy import text
+from sqlalchemy import Integer, VARCHAR
+
+
+# from sqlalchemy.orm import alter_table
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -61,6 +67,7 @@ class BaseCopy(object):
         else:
             self.sql_table = table_obj.name
         self.logger = get_logger(self.sql_table)
+        # args = {"primary_key": ["classification.city_id"]}
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
 
@@ -70,13 +77,43 @@ class BaseCopy(object):
         constraints that may rely on the PK
         """
         self.logger.info("Dropping {} primary key".format(self.sql_table))
-        self.logger.info("SCHEMA: {}".format(self.schema))
-        self.logger.info("PRIMARY KEY:{}".format(self.primary_key))
         self.logger.info("Name of table {}".format(self.sql_table))
         try:
+            for pkey in self.primary_key:
+                print("primary key", pkey)
             with self.conn.begin_nested():
-                self.conn.execute(DropConstraint(self.primary_key, cascade=True))
-        except SQLAlchemyError:
+                # constraints = [self.conn for self.conn in self.table_obj.constraints]
+                # for constraint in self.table_obj.constraints:
+                #     if isinstance(self.conn, PrimaryKeyConstraint):
+                #         print("primary key", constraint)
+                #         constraint.drop()
+                # print(
+                #     "Primary key constraint for table [%s] on: %s"
+                #     % (self.sql_table, primary_key_constraints.columns.keys())
+                # )
+
+                # print("foreign keys", self.foreign_keys)
+                # print("before drop", self.primary_key)
+                # self.table_obj.alter_column(
+                #     self.sql_table,
+                #     self.primary_key,
+                #     existing_type=Integer,
+                #     type_=VARCHAR(length=25),
+                # )
+                # self.conn.execute(
+                #     "ALTER TABLE {} DROP CONSTRAINT city_cluster_year_pkey".format(
+                #         self.sql_table
+                #     )
+                # )
+
+                self.conn.execute(
+                    # text(DropConstraint(self.primary_key, "primary", cascade="all"))
+                    DropConstraint(self.primary_key, cascade="all")
+                )
+
+                print("after drop", self.primary_key)
+        except SQLAlchemyError as e:
+            print("ERROR MESSAGE", e)
             self.logger.info(
                 "{} primary key not found. Skipping".format(self.sql_table)
             )
@@ -84,7 +121,10 @@ class BaseCopy(object):
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
         self.logger.info("Creating {} primary key".format(self.sql_table))
-        self.conn.execute(AddConstraint(self.primary_key))
+        try:
+            self.conn.execute(AddConstraint(self.primary_key))
+        except:
+            print("skipping adding pk")
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
@@ -92,7 +132,9 @@ class BaseCopy(object):
             self.logger.info("Dropping foreign key {}".format(fk.name))
             try:
                 with self.conn.begin_nested():
+                    print("before FK drop", self.foreign_keys)
                     self.conn.execute(DropConstraint(fk))
+                    print("after FK drop", self.foreign_keys)
             except SQLAlchemyError:
                 self.logger.warn("Foreign key {} not found".format(fk.name))
 
@@ -108,7 +150,7 @@ class BaseCopy(object):
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
         self.logger.info("Truncating {}".format(self.sql_table))
-        self.conn.execute("TRUNCATE TABLE {};".format(self.sql_table))
+        self.conn.execute("TRUNCATE TABLE {} CASCADE;".format(self.sql_table))
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
