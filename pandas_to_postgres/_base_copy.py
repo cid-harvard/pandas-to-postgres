@@ -70,6 +70,7 @@ class BaseCopy(object):
         # args = {"primary_key": ["classification.city_id"]}
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
+        # self.foreign_keys_name = table_obj.foreign_keys
 
     def drop_pk(self):
         """
@@ -82,36 +83,7 @@ class BaseCopy(object):
             for pkey in self.primary_key:
                 print("primary key", pkey)
             with self.conn.begin_nested():
-                # constraints = [self.conn for self.conn in self.table_obj.constraints]
-                # for constraint in self.table_obj.constraints:
-                #     if isinstance(self.conn, PrimaryKeyConstraint):
-                #         print("primary key", constraint)
-                #         constraint.drop()
-                # print(
-                #     "Primary key constraint for table [%s] on: %s"
-                #     % (self.sql_table, primary_key_constraints.columns.keys())
-                # )
-
-                # print("foreign keys", self.foreign_keys)
-                # print("before drop", self.primary_key)
-                # self.table_obj.alter_column(
-                #     self.sql_table,
-                #     self.primary_key,
-                #     existing_type=Integer,
-                #     type_=VARCHAR(length=25),
-                # )
-                # self.conn.execute(
-                #     "ALTER TABLE {} DROP CONSTRAINT city_cluster_year_pkey".format(
-                #         self.sql_table
-                #     )
-                # )
-
-                self.conn.execute(
-                    # text(DropConstraint(self.primary_key, "primary", cascade="all"))
-                    DropConstraint(self.primary_key, cascade="all")
-                )
-
-                print("after drop", self.primary_key)
+                self.conn.execute(DropConstraint(self.primary_key, cascade="all"))
         except SQLAlchemyError as e:
             print("ERROR MESSAGE", e)
             self.logger.info(
@@ -128,22 +100,51 @@ class BaseCopy(object):
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
+        print("FOREIGN KEYS SET", self.foreign_keys)
         for fk in self.foreign_keys:
+            # print("FOREIGN KEY ", fk)
             self.logger.info("Dropping foreign key {}".format(fk.name))
             try:
                 with self.conn.begin_nested():
-                    print("before FK drop", self.foreign_keys)
-                    self.conn.execute(DropConstraint(fk))
-                    print("after FK drop", self.foreign_keys)
+                    # print("before FK drop", self.foreign_keys)
+                    self.conn.execute(DropConstraint(fk), cascade="all")
+                    # print("after FK drop", self.foreign_keys)
             except SQLAlchemyError:
                 self.logger.warn("Foreign key {} not found".format(fk.name))
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
+        print("TABLE NAME IN CREATE FOREIGN KEYS", self.sql_table)
+        if self.sql_table == "naics_industry":
+            print("***!!*** trying to add foreign key")
+            print("BEFORE FOREIGN KEY ADDED", self.foreign_keys)
+            # self.foreign_keys.elements[0]
+            try:
+                self.conn.execute(
+                    text(
+                        "ALTER TABLE {} ADD FOREIGN KEY ({}) REFERENCES {}({})".format(
+                            self.sql_table,
+                            "naics_id",
+                            "classification.naics_industry",
+                            "naics_id",
+                        )
+                    )
+                )
+                print("ADDED FOREIGN KEY", self.foreign_keys)
+            except SQLAlchemyError:
+                self.logger.warn("Error creating foreign key {}".format(fk.name))
         for fk in self.foreign_keys:
             try:
                 self.logger.info("Creating foreign key {}".format(fk.name))
-                self.conn.execute(AddConstraint(fk))
+                # self.conn.execute(AddConstraint(fk.elements[0]))
+                # self.conn.execute(AddConstraint(fk))
+                self.conn.execute(
+                    text(
+                        "ALTER TABLE {} CREATE CONSTRAINT {}".format(
+                            self.sql_table, fk.name
+                        )
+                    )
+                )
             except SQLAlchemyError:
                 self.logger.warn("Error creating foreign key {}".format(fk.name))
 
