@@ -92,7 +92,7 @@ def create_file_object(df):
     return file_object
 
 
-def df_generator(df, chunksize=10 ** 6, logger=None):
+def df_generator(df, chunksize=10**6, logger=None):
     """
     Create a generator to iterate over chunks of a dataframe
 
@@ -149,9 +149,10 @@ def cast_pandas(df, columns=None, copy_obj=None, logger=None, **kwargs):
     for col in columns:
         try:
             if str(col.type) in ["INTEGER", "BIGINT"]:
-                df[col.name] = df[col.name].apply(
-                    lambda x: None if isna(x) else int(x), convert_dtype=False
-                )
+                df[col.name] = df[col.name].astype("Int64")
+                # df[col.name] = df[col.name].apply(
+                #     lambda x: None if isna(x) else int(x), convert_dtype=False
+                # )
             elif str(col.type) == "BOOLEAN":
                 df[col.name] = df[col.name].apply(
                     lambda x: None if isna(x) else bool(x), convert_dtype=False

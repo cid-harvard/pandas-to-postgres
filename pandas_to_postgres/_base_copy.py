@@ -1,6 +1,7 @@
 from .utilities import get_logger
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import text
 
 
 class BaseCopy(object):
@@ -14,7 +15,7 @@ class BaseCopy(object):
         conn=None,
         table_obj=None,
         sql_table=None,
-        csv_chunksize=10 ** 6,
+        csv_chunksize=10**6,
     ):
         """
         Parameters
@@ -70,27 +71,33 @@ class BaseCopy(object):
         """
         self.logger.info("Dropping {} primary key".format(self.sql_table))
         try:
-            with self.conn.begin_nested():
-                self.conn.execute(DropConstraint(self.primary_key, cascade=True))
+            self.conn.execute(DropConstraint(self.primary_key, cascade=True))
         except SQLAlchemyError:
             self.logger.info(
                 "{} primary key not found. Skipping".format(self.sql_table)
             )
+        self.conn.commit()
 
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
         self.logger.info("Creating {} primary key".format(self.sql_table))
-        self.conn.execute(AddConstraint(self.primary_key))
+        try:
+            self.conn.execute(AddConstraint(self.primary_key))
+        except SQLAlchemyError:
+            self.logger.warn(
+                "Error creating foreign key {}".format(self.primary_key.name)
+            )
+        self.conn.commit()
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             self.logger.info("Dropping foreign key {}".format(fk.name))
             try:
-                with self.conn.begin_nested():
-                    self.conn.execute(DropConstraint(fk))
+                self.conn.execute(DropConstraint(fk))
             except SQLAlchemyError:
                 self.logger.warn("Foreign key {} not found".format(fk.name))
+            self.conn.commit()
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
@@ -104,12 +111,16 @@ class BaseCopy(object):
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
         self.logger.info("Truncating {}".format(self.sql_table))
-        self.conn.execute("TRUNCATE TABLE {};".format(self.sql_table))
+        self.conn.execution_options(autocommit=True).execute(
+            text("TRUNCATE TABLE {};".format(self.sql_table))
+        )
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
         self.logger.info("Analyzing {}".format(self.sql_table))
-        self.conn.execute("ANALYZE {};".format(self.sql_table))
+        self.conn.execution_options(autocommit=True).execute(
+            text("ANALYZE {};".format(self.sql_table))
+        )
 
     def copy_from_file(self, file_object):
         """
@@ -123,6 +134,7 @@ class BaseCopy(object):
         cur = self.conn.connection.cursor()
         file_object.seek(0)
         columns = file_object.readline()
+
         sql = "COPY {table} ({columns}) FROM STDIN WITH CSV FREEZE".format(
             table=self.sql_table, columns=columns
         )
