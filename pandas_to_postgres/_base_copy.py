@@ -76,7 +76,6 @@ class BaseCopy(object):
             self.logger.info(
                 "{} primary key not found. Skipping".format(self.sql_table)
             )
-        self.conn.commit()
 
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
@@ -87,7 +86,6 @@ class BaseCopy(object):
             self.logger.warn(
                 "Error creating foreign key {}".format(self.primary_key.name)
             )
-        self.conn.commit()
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
@@ -97,7 +95,6 @@ class BaseCopy(object):
                 self.conn.execute(DropConstraint(fk))
             except SQLAlchemyError:
                 self.logger.warn("Foreign key {} not found".format(fk.name))
-            self.conn.commit()
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
