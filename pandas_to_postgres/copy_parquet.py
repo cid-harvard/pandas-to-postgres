@@ -74,7 +74,7 @@ class ParquetCopy(BaseCopy):
                 self.create_fks()
                 self.analyze()
         finally:
-            self.conn.close()
+            self.conn.commit()
 
     def parquet_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         self.logger.info("Reading Parquet file")
