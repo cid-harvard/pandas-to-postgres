@@ -56,22 +56,25 @@ class ParquetCopy(BaseCopy):
         self.drop_pk()
 
         # These need to be one transaction to use COPY FREEZE
-        with self.conn:
-            self.truncate()
-            if self.big_copy:
-                self.big_parquet_to_pg(
-                    data_formatters=data_formatters,
-                    data_formatter_kwargs=data_formatter_kwargs,
-                )
-            else:
-                self.parquet_to_pg(
-                    data_formatters=data_formatters,
-                    data_formatter_kwargs=data_formatter_kwargs,
-                )
+        try:
+            with self.conn:
+                self.truncate()
+                if self.big_copy:
+                    self.big_parquet_to_pg(
+                        data_formatters=data_formatters,
+                        data_formatter_kwargs=data_formatter_kwargs,
+                    )
+                else:
+                    self.parquet_to_pg(
+                        data_formatters=data_formatters,
+                        data_formatter_kwargs=data_formatter_kwargs,
+                    )
 
-        self.create_pk()
-        self.create_fks()
-        self.analyze()
+                self.create_pk()
+                self.create_fks()
+                self.analyze()
+        finally:
+            self.conn.close()
 
     def parquet_to_pg(self, data_formatters=[cast_pandas], data_formatter_kwargs={}):
         self.logger.info("Reading Parquet file")
