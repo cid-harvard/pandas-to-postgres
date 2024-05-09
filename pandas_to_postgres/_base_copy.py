@@ -76,7 +76,7 @@ class BaseCopy(object):
             self.logger.info(
                 "{} primary key not found. Skipping".format(self.sql_table)
             )
-        self.conn.commit()
+        # self.conn.commit()
 
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
@@ -87,7 +87,7 @@ class BaseCopy(object):
             self.logger.warn(
                 "Error creating foreign key {}".format(self.primary_key.name)
             )
-        self.conn.commit()
+        # self.conn.commit()
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
@@ -97,7 +97,7 @@ class BaseCopy(object):
                 self.conn.execute(DropConstraint(fk))
             except SQLAlchemyError:
                 self.logger.warn("Foreign key {} not found".format(fk.name))
-            self.conn.commit()
+            # self.conn.commit()
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
@@ -111,16 +111,14 @@ class BaseCopy(object):
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
         self.logger.info("Truncating {}".format(self.sql_table))
-        self.conn.execution_options(autocommit=True).execute(
-            text("TRUNCATE TABLE {};".format(self.sql_table))
-        )
+        # self.conn.execution_options(autocommit=True).execute(
+        self.conn.execute(text("TRUNCATE TABLE {};".format(self.sql_table)))
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
         self.logger.info("Analyzing {}".format(self.sql_table))
-        self.conn.execution_options(autocommit=True).execute(
-            text("ANALYZE {};".format(self.sql_table))
-        )
+        # self.conn.execution_options(autocommit=True).execute(
+        self.conn.execute(text("ANALYZE {};".format(self.sql_table)))
 
     def copy_from_file(self, file_object):
         """
