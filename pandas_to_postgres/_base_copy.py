@@ -111,14 +111,18 @@ class BaseCopy(object):
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
         self.logger.info("Truncating {}".format(self.sql_table))
-        # self.conn.execution_options(autocommit=True).execute(
-        self.conn.execute(text("TRUNCATE TABLE {};".format(self.sql_table)))
+        self.conn.execution_options(autocommit=True).execute(
+            # self.conn.execute(
+            text("TRUNCATE TABLE {};".format(self.sql_table))
+        )
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
         self.logger.info("Analyzing {}".format(self.sql_table))
-        # self.conn.execution_options(autocommit=True).execute(
-        self.conn.execute(text("ANALYZE {};".format(self.sql_table)))
+        self.conn.execution_options(autocommit=True).execute(
+            # self.conn.execute(
+            text("ANALYZE {};".format(self.sql_table))
+        )
 
     def copy_from_file(self, file_object):
         """
