@@ -56,7 +56,7 @@ class ParquetCopy(BaseCopy):
         self.drop_pk()
 
         # These need to be one transaction to use COPY FREEZE
-        with self.conn():
+        with self.conn:
             self.truncate()
             if self.big_copy:
                 self.big_parquet_to_pg(
@@ -68,7 +68,6 @@ class ParquetCopy(BaseCopy):
                     data_formatters=data_formatters,
                     data_formatter_kwargs=data_formatter_kwargs,
                 )
-            self.conn.commit()
 
         self.create_pk()
         self.create_fks()
