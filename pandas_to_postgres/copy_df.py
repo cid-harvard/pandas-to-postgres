@@ -9,7 +9,7 @@ class DataFrameCopy(BaseCopy):
     """
 
     def __init__(
-        self, df, defer_sql_objs=False, conn=None, table_obj=None, csv_chunksize=10 ** 6
+        self, df, defer_sql_objs=False, conn=None, table_obj=None, csv_chunksize=10**6
     ):
         """
         Parameters
@@ -35,12 +35,12 @@ class DataFrameCopy(BaseCopy):
         self.drop_fks()
         self.drop_pk()
         self.df = self.data_formatting(self.df, functions=functions)
+
         with self.conn.begin():
             self.truncate()
 
             self.logger.info("Creating generator for chunking dataframe")
-            for chunk in df_generator(self.df, self.csv_chunksize):
-
+            for chunk in df_generator(self.df, self.csv_chunksize, logger=self.logger):
                 self.logger.info("Creating CSV in memory")
                 fo = create_file_object(chunk)
 
@@ -48,7 +48,7 @@ class DataFrameCopy(BaseCopy):
                 self.copy_from_file(fo)
                 del fo
 
-            self.logger.info("All chunks copied ({} rows)".format(self.rows))
+        self.logger.info("All chunks copied ({} rows)".format(self.rows))
 
         self.create_pk()
         self.create_fks()

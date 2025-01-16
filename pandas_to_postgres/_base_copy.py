@@ -1,6 +1,7 @@
 from .utilities import get_logger
 from sqlalchemy.schema import AddConstraint, DropConstraint
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import text
 
 
 class BaseCopy(object):
@@ -14,7 +15,7 @@ class BaseCopy(object):
         conn=None,
         table_obj=None,
         sql_table=None,
-        csv_chunksize=10 ** 6,
+        csv_chunksize=10**6,
     ):
         """
         Parameters
@@ -55,7 +56,10 @@ class BaseCopy(object):
         """
         self.conn = conn
         self.table_obj = table_obj
-        self.sql_table = table_obj.name
+        if table_obj.schema:
+            self.sql_table = f"{table_obj.schema}.{table_obj.name}"
+        else:
+            self.sql_table = table_obj.name
         self.logger = get_logger(self.sql_table)
         self.primary_key = table_obj.primary_key
         self.foreign_keys = table_obj.foreign_key_constraints
@@ -65,48 +69,63 @@ class BaseCopy(object):
         Drop primary key constraints on PostgreSQL table as well as CASCADE any other
         constraints that may rely on the PK
         """
-        self.logger.info("Dropping {} primary key".format(self.sql_table))
+        self.logger.info(f"Dropping {self.sql_table} primary key")
         try:
-            with self.conn.begin_nested():
-                self.conn.execute(DropConstraint(self.primary_key, cascade=True))
+            self.conn.execute(DropConstraint(self.primary_key, cascade=True))
+            self.conn.commit()
         except SQLAlchemyError:
+            self.conn.rollback()
             self.logger.info(
-                "{} primary key not found. Skipping".format(self.sql_table)
+                f"{self.sql_table} primary key not found. Skipping"
             )
 
     def create_pk(self):
         """Create primary key constraints on PostgreSQL table"""
-        self.logger.info("Creating {} primary key".format(self.sql_table))
-        self.conn.execute(AddConstraint(self.primary_key))
+        self.logger.info(f"Creating {self.sql_table} primary key")
+        try:
+            self.conn.execute(AddConstraint(self.primary_key))
+            self.conn.commit()
+        except SQLAlchemyError:
+            self.conn.rollback()
+            self.logger.warn(
+                f"Error creating foreign key {self.primary_key.name}"
+            )
 
     def drop_fks(self):
         """Drop foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
-            self.logger.info("Dropping foreign key {}".format(fk.name))
+            self.logger.info(f"Dropping foreign key {fk.name}")
             try:
-                with self.conn.begin_nested():
-                    self.conn.execute(DropConstraint(fk))
+                self.conn.execute(DropConstraint(fk))
+                self.conn.commit()
             except SQLAlchemyError:
-                self.logger.warn("Foreign key {} not found".format(fk.name))
+                self.conn.rollback()
+                self.logger.warn(f"Foreign key {fk.name} not found")
 
     def create_fks(self):
         """Create foreign key constraints on PostgreSQL table"""
         for fk in self.foreign_keys:
             try:
-                self.logger.info("Creating foreign key {}".format(fk.name))
+                self.logger.info(f"Creating foreign key {fk.name}")
                 self.conn.execute(AddConstraint(fk))
+                self.conn.commit()
             except SQLAlchemyError:
-                self.logger.warn("Error creating foreign key {}".format(fk.name))
+                self.conn.rollback()
+                self.logger.warn(f"Error creating foreign key {fk.name}")
 
     def truncate(self):
         """TRUNCATE PostgreSQL table"""
-        self.logger.info("Truncating {}".format(self.sql_table))
-        self.conn.execute("TRUNCATE TABLE {};".format(self.sql_table))
+        self.logger.info(f"Truncating {self.sql_table}")
+        self.conn.execution_options(autocommit=True).execute(
+            text(f"TRUNCATE TABLE {self.sql_table};")
+        )
 
     def analyze(self):
         """Run ANALYZE on PostgreSQL table"""
-        self.logger.info("Analyzing {}".format(self.sql_table))
-        self.conn.execute("ANALYZE {};".format(self.sql_table))
+        self.logger.info(f"Analyzing {self.sql_table}")
+        self.conn.execution_options(autocommit=True).execute(
+            text(f"ANALYZE {self.sql_table};")
+        )
 
     def copy_from_file(self, file_object):
         """
@@ -120,9 +139,8 @@ class BaseCopy(object):
         cur = self.conn.connection.cursor()
         file_object.seek(0)
         columns = file_object.readline()
-        sql = "COPY {table} ({columns}) FROM STDIN WITH CSV FREEZE".format(
-            table=self.sql_table, columns=columns
-        )
+
+        sql = f"COPY {self.sql_table} ({columns}) FROM STDIN WITH CSV FREEZE"
         cur.copy_expert(sql=sql, file=file_object)
 
     def data_formatting(self, df, functions=[], **kwargs):

@@ -12,15 +12,15 @@ def read(fname, lines=False):
 
 setup(
     name="pandas_to_postgres",
-    version="v0.0.3",
-    author="Brendan Leonard <Harvard CID>",
+    version="v0.0.4",
+    author="Brendan Leonard <Harvard Growth Lab>",
     description=(
-        "Utility to copy Pandas DataFrames and DataFrames stored in HDF5 files "
-        "to PostgreSQL "
+        "Utility to copy Pandas DataFrames and DataFrames stored in HDF5 "
+        "or Parquet files to PostgreSQL databases."
     ),
     url="http://github.com/cid-harvard/pandas-to-postgres",
     packages=find_packages(),
-    install_requires=["SQLAlchemy", "pandas", "psycopg2", "tables"],
+    install_requires=["SQLAlchemy", "pandas", "psycopg2-binary", "tables", "pyarrow"],
     long_description=read("README.md"),
     classifiers=[
         "Topic :: Database",
